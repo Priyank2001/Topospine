@@ -1,0 +1,14 @@
+# Two Gaussian bumps on a 128x128 grid: 2 maxima, 1 saddle. Smallest end-to-end check.
+name: gauss2d
+dataset:
+  type: synthetic
+  generator: bumps
+  params:
+    dims_xyz: [128, 128]
+    centers: [[0.3, 0.5], [0.7, 0.5]]
+    heights: [1.0, 0.6]
+    width: 0.08
+extremum: maxima
+source: {type: native, connectivity: 8}
+histogram_bins: 64
+output: ../out/gauss2d

@@ -1,0 +1,10 @@
+# Eight bumps on a circle with light noise: a cycle in the extremum graph (paper Fig. 5),
+# plus small noise peaks that the noise threshold p_lo should remove.
+name: ring2d
+dataset:
+  type: synthetic
+  generator: ring
+  params: {n: 160, count: 8, radius: 0.3, width: 0.06, noise: 0.01, seed: 1}
+extremum: maxima
+source: {type: native, connectivity: 8}
+output: ../out/ring2d

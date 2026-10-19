@@ -1,0 +1,10 @@
+# Ackley in 4-D: 3^4 = 81 minima in theory (paper Fig. 13a, 4D panel). With 100k samples and k = 30
+# we get 82 at p_lo = 0.05-0.1; with 40k samples there is no clean plateau (too sparse in 4-D).
+name: ackley4d
+dataset:
+  type: synthetic
+  generator: points
+  params: {function: ackley, dim: 4, n: 100000, low: -1.5, high: 1.5, seed: 0}
+extremum: minima
+source: {type: native, k: 30}
+output: ../out/ackley4d

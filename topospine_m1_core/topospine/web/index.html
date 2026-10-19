@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Topological spines</title>
+  </head>
+  <body>
+    <main class="app">
+      <section class="stage" aria-label="Topological spine">
+        <canvas id="spine-canvas"></canvas>
+        <p class="status" id="status" role="status"></p>
+      </section>
+      <aside class="sidebar">
+        <header class="sidebar-head">
+          <h1>Topological spine</h1>
+          <p class="dataset-line" id="dataset-line"></p>
+        </header>
+        <figure class="plot">
+          <canvas id="persistence-plot" aria-label="Persistence and variation plot; drag the blue line to set the noise threshold and the red line to set the variation threshold"></canvas>
+          <figcaption>
+            <span class="key key-lo">extrema kept as noise threshold rises</span>
+            <span class="key key-hi">arcs kept as variation threshold rises</span>
+          </figcaption>
+        </figure>
+        <div id="panel"></div>
+        <dl class="stats" id="stats"></dl>
+      </aside>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

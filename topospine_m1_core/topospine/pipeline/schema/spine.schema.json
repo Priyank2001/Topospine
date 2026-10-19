@@ -1,0 +1,329 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/topospine/spine.schema.json",
+  "title": "Topological spine export (graph.json)",
+  "description": "Written by topospine.io.exporter, read by the web app. Binary files listed under `files` are little-endian, row-major, headerless.",
+  "type": "object",
+  "required": [
+    "version",
+    "dataset",
+    "nodes",
+    "arcs",
+    "regions",
+    "files"
+  ],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "dataset": {
+      "type": "object",
+      "required": [
+        "name",
+        "kind",
+        "extremum",
+        "numSamples",
+        "valueName",
+        "valueRange"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "grid",
+            "points"
+          ]
+        },
+        "extremum": {
+          "enum": [
+            "maxima",
+            "minima"
+          ]
+        },
+        "numSamples": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "valueName": {
+          "type": "string"
+        },
+        "valueRange": {
+          "$ref": "#/$defs/pair"
+        },
+        "grid": {
+          "type": "object",
+          "required": [
+            "dimsXYZ",
+            "spacingXYZ",
+            "originXYZ"
+          ],
+          "properties": {
+            "dimsXYZ": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "minItems": 1,
+              "maxItems": 3
+            },
+            "spacingXYZ": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 1,
+              "maxItems": 3
+            },
+            "originXYZ": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 1,
+              "maxItems": 3
+            }
+          }
+        },
+        "points": {
+          "type": "object",
+          "required": [
+            "dim",
+            "featureNames",
+            "offset",
+            "scale"
+          ],
+          "properties": {
+            "dim": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "featureNames": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "offset": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            },
+            "scale": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "kind": {
+              "const": "grid"
+            }
+          },
+          "required": [
+            "grid"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "points"
+            }
+          },
+          "required": [
+            "points"
+          ]
+        }
+      ]
+    },
+    "nodes": {
+      "description": "Column arrays, one entry per node. Maxima are nodes 0..numRegions-1; kind 0 = extremum, 1 = saddle.",
+      "type": "object",
+      "required": [
+        "kind",
+        "value",
+        "sample",
+        "position",
+        "persistence",
+        "saturated",
+        "saturatedCancel",
+        "mergedInto"
+      ],
+      "properties": {
+        "kind": {
+          "type": "array",
+          "items": {
+            "enum": [
+              0,
+              1
+            ]
+          }
+        },
+        "value": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "sample": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "position": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "persistence": {
+          "description": "null = never cancelled (+inf)",
+          "type": "array",
+          "items": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "saturated": {
+          "description": "P* of saddles; null for extrema",
+          "type": "array",
+          "items": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "saturatedCancel": {
+          "description": "P* raised only by cancelling saddles (not in the paper); null for extrema",
+          "type": "array",
+          "items": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "mergedInto": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": -1
+          }
+        }
+      }
+    },
+    "arcs": {
+      "description": "[saddle node, extremum node] pairs; every saddle appears exactly twice.",
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "minItems": 2,
+        "maxItems": 2
+      }
+    },
+    "regions": {
+      "type": "object",
+      "required": [
+        "binEdges",
+        "numRegions"
+      ],
+      "properties": {
+        "binEdges": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2
+        },
+        "numRegions": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "files": {
+      "type": "object",
+      "required": [
+        "labels",
+        "regions"
+      ],
+      "properties": {
+        "labels": {
+          "$ref": "#/$defs/binFile"
+        },
+        "regions": {
+          "$ref": "#/$defs/binFile"
+        },
+        "field": {
+          "$ref": "#/$defs/binFile"
+        },
+        "points": {
+          "$ref": "#/$defs/binFile"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "pair": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "binFile": {
+      "type": "object",
+      "required": [
+        "path",
+        "dtype",
+        "shape",
+        "bytes"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "dtype": {
+          "enum": [
+            "uint8",
+            "uint16",
+            "uint32",
+            "float32"
+          ]
+        },
+        "shape": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

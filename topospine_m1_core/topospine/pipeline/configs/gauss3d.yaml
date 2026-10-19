@@ -1,0 +1,13 @@
+# Four bumps in a 64^3 volume: a small 3-D case for the browser's volume view.
+name: gauss3d
+dataset:
+  type: synthetic
+  generator: bumps
+  params:
+    dims_xyz: [64, 64, 64]
+    centers: [[0.3, 0.3, 0.5], [0.7, 0.3, 0.5], [0.5, 0.7, 0.4], [0.5, 0.5, 0.8]]
+    heights: [1.0, 0.8, 0.7, 0.5]
+    width: 0.1
+extremum: maxima
+source: {type: native, connectivity: 26}
+output: ../out/gauss3d

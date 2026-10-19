@@ -1,0 +1,99 @@
+/* Tokens. The two plot colours follow the paper's persistence (blue) and variation (red)
+   curves so the sidebar reads like its Fig. 8b; everything else stays quiet so the spine
+   carries the colour. */
+:root {
+  color-scheme: light dark;
+  --canvas: #eef1f4;
+  --surface: #ffffff;
+  --ink: #1f2a36;
+  --ink-soft: #5b6774;
+  --rule: #d5dbe1;
+  --paper: #ffffff;
+  --persistence: #2f6db5;
+  --variation: #c23b3b;
+  --focus: #2f6db5;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--ink);
+  background: var(--surface);
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --canvas: #1b2129;
+    --surface: #232a33;
+    --ink: #dfe6ee;
+    --ink-soft: #9aa6b2;
+    --rule: #38424d;
+    --paper: #232a33;
+    --persistence: #6ea2e6;
+    --variation: #ec7a7a;
+    --focus: #6ea2e6;
+  }
+}
+*, *::before, *::after { box-sizing: inherit; }
+html, body { height: 100%; margin: 0; }
+
+.app {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  height: 100%;
+}
+.stage { position: relative; min-height: 0; background: var(--canvas); }
+.stage canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.stage canvas:active { cursor: grabbing; }
+.status {
+  position: absolute; left: 16px; bottom: 16px; margin: 0; max-width: 60ch;
+  padding: 8px 12px; border-radius: 6px; background: var(--surface); border: 1px solid var(--rule);
+}
+.status[hidden] { display: none; }
+
+.sidebar {
+  overflow-y: auto;
+  border-left: 1px solid var(--rule);
+  padding: 16px 16px 24px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.sidebar-head h1 { font-size: 1.15rem; font-weight: 650; margin: 0 0 2px; letter-spacing: -0.01em; }
+.dataset-line { margin: 0; color: var(--ink-soft); font-size: 0.87rem; }
+
+.plot { margin: 0; }
+.plot canvas { display: block; width: 100%; height: 140px; border-radius: 4px; }
+.plot canvas:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.plot figcaption { display: grid; gap: 2px; margin-top: 6px; font-size: 0.8rem; color: var(--ink-soft); }
+.key::before { content: ""; display: inline-block; width: 10px; height: 3px; margin-right: 6px; vertical-align: middle; }
+.key-lo::before { background: var(--persistence); }
+.key-hi::before { background: var(--variation); }
+
+.stats { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 0; font-size: 0.85rem; }
+.stats dt { color: var(--ink-soft); }
+.stats dd { margin: 0; font-variant-numeric: tabular-nums; }
+
+/* lil-gui fits the sidebar and uses the page's tokens instead of its dark default */
+#panel .lil-gui {
+  --background-color: transparent;
+  --text-color: var(--ink);
+  --title-background-color: transparent;
+  --title-text-color: var(--ink);
+  --widget-color: var(--canvas);
+  --hover-color: var(--rule);
+  --focus-color: var(--rule);
+  --number-color: var(--persistence);
+  --string-color: var(--ink);
+  --font-family: inherit;
+  --font-size: 13px;
+  --input-font-size: 13px;
+  --widget-height: 24px;
+  --name-width: 46%;
+}
+#panel .lil-gui.root { width: 100% !important; }
+#panel .lil-gui .title { font-weight: 600; border-bottom: 1px solid var(--rule); }
+
+@media (max-width: 760px) {
+  .app { grid-template-columns: 1fr; grid-template-rows: 60vh auto; height: auto; }
+  .sidebar { border-left: 0; border-top: 1px solid var(--rule); }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }

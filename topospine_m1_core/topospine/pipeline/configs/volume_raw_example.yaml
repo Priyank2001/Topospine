@@ -1,0 +1,13 @@
+# Template for a real volume (e.g. a .raw file from the Open SciVis Datasets collection).
+# Fill in path/dims/dtype from the dataset page, then: python -m topospine.cli configs/volume_raw_example.yaml
+name: my_volume
+dataset:
+  type: raw
+  path: ../data/hydrogen_atom_128x128x128_uint8.raw
+  dims_xyz: [128, 128, 128]
+  dtype: uint8
+  byte_order: little
+  spacing_xyz: [1, 1, 1]
+extremum: maxima
+source: {type: native, connectivity: 26}
+output: ../out/my_volume

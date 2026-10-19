@@ -1,0 +1,37 @@
+"""Command line: python -m topospine.cli configs/gauss2d.yaml [--out DIR] [--preview]"""
+
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+
+from topospine.config import load_config
+from topospine.run import run_pipeline
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(prog="topospine", description="Compute and export an extremum graph.")
+    ap.add_argument("config", type=Path, help="YAML run configuration")
+    ap.add_argument("--out", type=Path, default=None, help="override the output directory")
+    ap.add_argument("--preview", action="store_true", help="also write preview.png (2-D datasets only)")
+    ap.add_argument("--p-lo", type=float, default=0.0, help="noise threshold for the preview")
+    ap.add_argument("--p-hi", type=float, default=float("inf"), help="variation threshold for the preview")
+    ap.add_argument("--saturation", choices=["paper", "cancel"], default="paper",
+                    help="which P* the preview uses (see docs/DEVIATIONS.md #8)")
+    args = ap.parse_args(argv)
+
+    cfg = load_config(args.config)
+    result = run_pipeline(cfg, args.out)
+    print(result.summary())
+
+    if args.preview:
+        from topospine.viz.preview2d import render_preview   # matplotlib only when asked
+
+        png = render_preview(result.output, p_lo=args.p_lo, p_hi=args.p_hi, saturation=args.saturation)
+        print(f"preview   {png}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

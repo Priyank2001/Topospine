@@ -1,0 +1,13 @@
+# Same volume through TTK: compare out/gauss3d_ttk with out/gauss3d (M1 cross-check).
+name: gauss3d_ttk
+dataset:
+  type: synthetic
+  generator: bumps
+  params:
+    dims_xyz: [64, 64, 64]
+    centers: [[0.3, 0.3, 0.5], [0.7, 0.3, 0.5], [0.5, 0.7, 0.4], [0.5, 0.5, 0.8]]
+    heights: [1.0, 0.8, 0.7, 0.5]
+    width: 0.1
+extremum: maxima
+source: {type: ttk, connectivity: 26}
+output: ../out/gauss3d_ttk

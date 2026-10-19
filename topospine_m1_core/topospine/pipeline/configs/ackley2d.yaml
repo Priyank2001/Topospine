@@ -1,0 +1,9 @@
+# Ackley's function sampled at random points in 2-D: 3x3 grid of minima (paper Fig. 13a).
+name: ackley2d
+dataset:
+  type: synthetic
+  generator: points
+  params: {function: ackley, dim: 2, n: 6000, low: -1.5, high: 1.5, seed: 0}
+extremum: minima
+source: {type: native, k: 15}
+output: ../out/ackley2d
