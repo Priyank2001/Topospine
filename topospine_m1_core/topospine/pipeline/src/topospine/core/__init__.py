@@ -16,6 +16,9 @@ from topospine.core.extremum_graph import (
 )
 from topospine.core.gradient_flow import (
     FlowDecomposition,
+    SaddleSet,
+    assemble_flow,
+    boundary_saddles,
     decompose,
     graph_from_regions,
     regions_by_ascent,
@@ -36,8 +39,11 @@ __all__ = [
     "NodeKind",
     "Persistence",
     "RegionHistograms",
+    "SaddleSet",
     "ThresholdedGraph",
     "arc_curve",
+    "assemble_flow",
+    "boundary_saddles",
     "compute_persistence",
     "decompose",
     "extrema_curve",

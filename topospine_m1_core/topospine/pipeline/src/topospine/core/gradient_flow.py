@@ -8,6 +8,10 @@
    (n-1)-saddle". The edge's height is min(f(i), f(j)) - the level at which the two
    regions first touch - and its lower endpoint is the saddle sample.
 
+Steps 1 and 2 are separate blocks (DECISIONS.md D-004): any region labelling can be
+paired with any saddle method, and every saddle method hands a `SaddleSet` to the one
+`assemble_flow`, so the graph is always built the same way.
+
 Ties: all comparisons use the strict total order (f, sample index) ("simulation of
 simplicity"), so plateaus never create ambiguous maxima or saddles.
 
@@ -39,6 +43,30 @@ class FlowDecomposition:
 
     graph: GradientFlowGraph
     labels: NDArray[np.int64]
+
+
+@dataclass(frozen=True, eq=False)
+class SaddleSet:
+    """What a saddle method finds, before the saddles become graph nodes.
+
+    samples : (S,) sample index of each saddle.
+    pairs   : (S, 2) the two region ids each saddle joins. Both may be equal (a loop),
+              and several saddles may join the same pair: exact Morse-Smale complexes
+              produce both; our boundary rule produces neither.
+    """
+
+    samples: NDArray[np.int64]
+    pairs: NDArray[np.int64]
+
+    def __post_init__(self) -> None:
+        samples = np.asarray(self.samples, dtype=np.int64)
+        pairs = np.asarray(self.pairs, dtype=np.int64)
+        if pairs.size == 0:
+            pairs = pairs.reshape(0, 2)
+        if samples.ndim != 1 or pairs.ndim != 2 or pairs.shape != (samples.size, 2):
+            raise ValueError("a SaddleSet needs samples (S,) and pairs (S, 2)")
+        object.__setattr__(self, "samples", samples)
+        object.__setattr__(self, "pairs", pairs)
 
 
 def sample_ranks(values: NDArray[np.floating]) -> NDArray[np.int64]:
@@ -95,27 +123,41 @@ def regions_by_ascent(ranks: NDArray[np.int64], neighborhood: Neighborhood) -> N
     return region_of_max[roots]
 
 
-def graph_from_regions(
-    values: NDArray[np.floating], labels: NDArray[np.integer], neighborhood: Neighborhood
-) -> FlowDecomposition:
-    """Build G from any region labelling (ours, or TTK's descending manifolds).
-
-    labels must be 0..M-1 with every id used. Region r becomes maximum node r, placed at
-    the region's highest sample; saddles come from the highest boundary edge per pair.
-    """
-    v = np.asarray(values, dtype=np.float64).ravel()
-    labels = np.asarray(labels, dtype=np.int64).ravel()
-    if labels.shape != v.shape:
+def _region_count(labels: NDArray[np.int64], n: int) -> int:
+    """M for labels 0..M-1; rejects gaps, negatives and a wrong length."""
+    if labels.shape != (n,):
         raise ValueError("one label per sample required")
-    ranks = sample_ranks(v)
-    sample_at_rank = np.argsort(ranks)
     m = int(labels.max()) + 1 if labels.size else 0
     if labels.size and (labels.min() < 0 or np.bincount(labels, minlength=m).min() == 0):
         raise ValueError("labels must be 0..M-1 with every region non-empty")
+    return m
 
-    top_rank = np.full(m, -1, dtype=np.int64)
-    np.maximum.at(top_rank, labels, ranks)
-    max_samples = sample_at_rank[top_rank]
+
+def _sample_at_rank(ranks: NDArray[np.int64]) -> NDArray[np.int64]:
+    """Inverse permutation of ranks, in O(n) (no sort needed).
+
+    Only valid for a permutation of 0..n-1: a repeated rank would be overwritten and a
+    missing one left as uninitialised memory, both silently. Callers may pass their own
+    ranks, so this is checked (O(n), cheap next to the sort that made them; D-008).
+    """
+    n = ranks.size
+    if n and (ranks.min() < 0 or ranks.max() >= n or np.bincount(ranks, minlength=n).max() != 1):
+        raise ValueError("ranks must be a permutation of 0..n-1 (as made by sample_ranks)")
+    out = np.empty_like(ranks)
+    out[ranks] = np.arange(ranks.size, dtype=np.int64)
+    return out
+
+
+def boundary_saddles(
+    ranks: NDArray[np.int64], labels: NDArray[np.integer], neighborhood: Neighborhood
+) -> SaddleSet:
+    """Our saddle rule (Sec. 3.4): one saddle per pair of touching regions, at the lower
+    endpoint of their highest boundary edge (DEVIATIONS.md #2).
+
+    Saddles come out ordered by region pair (a, b) with a < b.
+    """
+    labels = np.asarray(labels, dtype=np.int64).ravel()
+    m = _region_count(labels, ranks.size)
 
     # Highest boundary edge per region pair, reduced block by block to bound memory.
     acc_keys = np.empty(0, dtype=np.int64)
@@ -132,21 +174,58 @@ def graph_from_regions(
             np.concatenate([acc_keys, a * m + b]), np.concatenate([acc_rank, edge_rank])
         )
 
-    s = acc_keys.size
-    pair_a, pair_b = acc_keys // max(m, 1), acc_keys % max(m, 1)
-    saddle_samples = sample_at_rank[acc_rank]
-    saddle_nodes = np.arange(m, m + s, dtype=np.int64)
+    pairs = np.stack([acc_keys // max(m, 1), acc_keys % max(m, 1)], axis=1)
+    return SaddleSet(samples=_sample_at_rank(ranks)[acc_rank], pairs=pairs)
 
+
+def assemble_flow(
+    values: NDArray[np.floating],
+    labels: NDArray[np.integer],
+    saddles: SaddleSet,
+    ranks: NDArray[np.int64] | None = None,
+) -> FlowDecomposition:
+    """Regions + saddles -> G. The one place the graph is built, whatever the methods.
+
+    labels must be 0..M-1 with every id used. Region r becomes maximum node r, placed at
+    the region's highest sample; saddle i becomes node M+i with arcs to its two regions.
+    Pass `ranks` if you already have them, to skip a sort.
+    """
+    v = np.asarray(values, dtype=np.float64).ravel()
+    labels = np.asarray(labels, dtype=np.int64).ravel()
+    m = _region_count(labels, v.size)
+    if ranks is None:
+        ranks = sample_ranks(v)
+    elif np.shape(ranks) != v.shape:
+        raise ValueError("one rank per sample required")
+    s = saddles.samples.size
+    if s and (saddles.pairs.min() < 0 or saddles.pairs.max() >= m):
+        raise ValueError("a saddle refers to a region that doesn't exist")
+    if s and (saddles.samples.min() < 0 or saddles.samples.max() >= v.size):
+        raise ValueError("a saddle sample index is out of range")
+
+    top_rank = np.full(m, -1, dtype=np.int64)
+    np.maximum.at(top_rank, labels, ranks)
+    max_samples = _sample_at_rank(ranks)[top_rank]
+
+    saddle_nodes = np.arange(m, m + s, dtype=np.int64)
     kinds = np.r_[np.full(m, NodeKind.MAXIMUM), np.full(s, NodeKind.SADDLE)]
-    samples = np.r_[max_samples, saddle_samples].astype(np.int64)
+    samples = np.r_[max_samples, saddles.samples].astype(np.int64)
     arcs = np.empty((2 * s, 2), dtype=np.int64)
     arcs[0::2, 0] = saddle_nodes
-    arcs[0::2, 1] = pair_a
+    arcs[0::2, 1] = saddles.pairs[:, 0]
     arcs[1::2, 0] = saddle_nodes
-    arcs[1::2, 1] = pair_b
+    arcs[1::2, 1] = saddles.pairs[:, 1]
 
     graph = GradientFlowGraph(kinds=kinds, values=v[samples], samples=samples, arcs=arcs)
     return FlowDecomposition(graph=graph, labels=labels)
+
+
+def graph_from_regions(
+    values: NDArray[np.floating], labels: NDArray[np.integer], neighborhood: Neighborhood
+) -> FlowDecomposition:
+    """Build G from any region labelling (ours, or TTK's) with our boundary saddles."""
+    ranks = sample_ranks(values)
+    return assemble_flow(values, labels, boundary_saddles(ranks, labels, neighborhood), ranks)
 
 
 def decompose(values: NDArray[np.floating], neighborhood: Neighborhood) -> FlowDecomposition:

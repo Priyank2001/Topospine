@@ -6,6 +6,9 @@ from topospine.core import (
     GridNeighborhood,
     KnnNeighborhood,
     NodeKind,
+    SaddleSet,
+    assemble_flow,
+    boundary_saddles,
     compute_persistence,
     decompose,
     sample_ranks,
@@ -106,3 +109,66 @@ def test_larger_k_gives_fewer_spurious_maxima():
     pts, f = scattered_gaussians()
     counts = [decompose(f, KnnNeighborhood(pts, k=k)).graph.maxima.size for k in (6, 10, 20)]
     assert counts[0] > counts[1] > counts[2] >= 2                    # k trades noise for smoothing
+
+
+# --- saddle block / assembly split (DECISIONS.md D-004) ---------------------------
+
+def test_boundary_saddles_line_example(line_example):
+    labels = line_example[0].labels
+    sad = boundary_saddles(sample_ranks(LINE_VALUES), labels, GridNeighborhood((9,), 2))
+    assert sad.samples.tolist() == [2, 4, 6]                         # same saddles as before the split
+    assert sad.pairs.tolist() == [[A, B], [B, C], [C, D]]            # ordered by region pair
+
+
+def test_assemble_flow_accepts_loops_and_parallel_saddles(line_example):
+    # Exact MS complexes (TTK) give both; the assembly must pass them on to Algorithm 1.
+    labels = line_example[0].labels
+    sad = SaddleSet(samples=np.array([2, 2, 0]), pairs=np.array([[A, B], [A, B], [A, A]]))
+    g = assemble_flow(LINE_VALUES, labels, sad).graph
+    assert g.saddles.size == 3
+    assert g.arcs[g.saddle_arcs[g.saddles[2]]][:, 1].tolist() == [A, A]   # loop kept, not dropped
+    compute_persistence(g)                                           # and Algorithm 1 accepts it
+
+
+def test_assemble_flow_without_saddles():
+    dec = assemble_flow(np.arange(5.0), np.zeros(5, dtype=int), SaddleSet(np.empty(0), np.empty(0)))
+    assert dec.graph.maxima.size == 1 and dec.graph.saddles.size == 0
+    assert dec.graph.samples.tolist() == [4]                         # maximum at the region's top
+
+
+@pytest.mark.parametrize("samples, pairs", [
+    ([2], [[A, 4]]),          # region 4 doesn't exist (M = 4)
+    ([2], [[-1, A]]),         # negative region
+    ([9], [[A, B]]),          # sample past the end
+])
+def test_assemble_flow_rejects_bad_saddles(line_example, samples, pairs):
+    with pytest.raises(ValueError):
+        assemble_flow(LINE_VALUES, line_example[0].labels, SaddleSet(np.array(samples), np.array(pairs)))
+
+
+@pytest.mark.parametrize("samples, pairs", [
+    ([1, 2], [[0, 1]]),       # one sample too many
+    ([1], [[0, 1, 2]]),       # three regions per saddle
+])
+def test_saddle_set_rejects_bad_shapes(samples, pairs):
+    with pytest.raises(ValueError):
+        SaddleSet(np.array(samples), np.array(pairs))
+
+
+@pytest.mark.parametrize("ranks", [
+    [2, 1, 2, 0, 3, 4, 5, 6, 7],    # tie not broken: rank 2 twice, rank 8 missing
+    [1, 2, 3, 4, 5, 6, 7, 8, 9],    # shifted: 9 is past the end, 0 missing
+    [-1, 1, 2, 3, 4, 5, 6, 7, 8],   # negative
+    [0, 1, 2],                      # wrong length
+])
+def test_assemble_flow_rejects_ranks_that_are_not_a_permutation(line_example, ranks):
+    # Without the check these would place peaks at overwritten or uninitialised samples, silently.
+    sad = SaddleSet(np.array([2]), np.array([[A, B]]))
+    with pytest.raises(ValueError):
+        assemble_flow(LINE_VALUES, line_example[0].labels, sad, ranks=np.array(ranks))
+
+
+def test_boundary_saddles_rejects_ranks_that_are_not_a_permutation(line_example):
+    bad = np.array([2, 1, 2, 0, 3, 4, 5, 6, 7])
+    with pytest.raises(ValueError):
+        boundary_saddles(bad, line_example[0].labels, GridNeighborhood((9,), 2))
