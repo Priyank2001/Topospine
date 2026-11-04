@@ -95,18 +95,33 @@ What the table says:
      (2,3)×3).
    - TTK's exact saddle can sit **lower** than our "highest border edge", so persistence
      rises slightly (foot: 84.3 vs 83.5; `gauss3d` 3rd peak 32.9 vs 32.7).
-   - **More maxima pass the 5 % cut** (foot 587 vs 481, bonsai 298 vs 279). Cause: passes
-     TTK doesn't give us, either dropped as one-sided (D-009) or lower than our border edge.
-     D-011 only adds passes where pieces are disconnected, not where a higher pass is
-     missing, so such peaks merge later and look more important. Check: TTK's saddles **plus
-     all** our boundary saddles give exactly the `ttk+boundary` counts (foot 481, bonsai 279).
+   - **More maxima pass the 5 % cut** (foot 587 vs 481, bonsai 298 vs 279). TTK's saddles
+     plus all our boundary saddles give exactly the `ttk+boundary` counts (foot 481, bonsai
+     279), so our boundary passes are *higher* than TTK's wherever both exist.
    - Every run has exactly **one** infinite-persistence maximum: D-011 keeps the graph whole.
      Without it, foot falls into 17 pieces and bonsai into 50.
-3. **Open concern (review item).** On `aneurism`, D-011 added 61 of our saddles against 159
-   kept from TTK: the "revisit if" condition of D-011 is met. Together with point 2, this
-   says `ttk+ttk` is a fair *structural* comparison (which saddles TTK finds) but its
-   persistence values on noisy real data are biased upward. For persistence comparisons,
-   `ttk+boundary` vs `native` is the cleaner one.
+3. **Which one is right? Checked against TTK's own persistence diagram** (corrected
+   2026-11-04; an earlier version of this section said `ttk+ttk` *overstates* persistence;
+   that was backwards). Evidence: `temp/evidence/persistence_vs_ttk_diagram.py`.
+
+   | foot slice | maxima with p ≥ 5 % | persistence values also in TTK's diagram |
+   |---|---|---|
+   | TTK persistence diagram (reference) | 579 | |
+   | `ttk+ttk` | 586 | 2067 / 2092 |
+   | `ttk+boundary` | 480 | 1695 / 2092 |
+   | `ascent+boundary` | 493 | 1703 / 1736 |
+
+   `ttk+ttk` matches TTK's persistence; the **boundary rule underestimates** it. Likely cause:
+   our 8/26-neighbour stencil links both diagonals of every grid cell, so two regions can
+   touch across a diagonal above the true saddle of TTK's triangulated mesh. The small
+   remaining excess of `ttk+ttk` (586 vs 579) comes from D-009/D-011.
+4. **Review item.** On `aneurism`, D-011 added 61 of our saddles against 159 kept from TTK:
+   the "revisit if" condition of D-011 is met.
+5. **Simplification (D-014) does not close the gap.** After TTK persistence simplification at
+   5 % (pair type 2 = maximum–saddle, perturbation on), foot has 500 / 488 / 583 maxima above
+   5 % for native / `ttk+boundary` / `ttk+ttk`: the gap is the mesh, not noise. Evidence:
+   `temp/evidence/simplify_precheck.py`. Perturbation is required: without it the flattened
+   field re-creates spurious maxima (noisy 3-D at 2 %: 83 vs 26).
 
 ---
 

@@ -41,6 +41,9 @@ the old one's status line only.
 | [D-011](#d-011) | 2026-11-04 | When TTK's saddles leave the peaks in pieces, join the pieces with our highest boundary saddles | Active; revisit condition met (M3_NOTES.md) |
 | [D-012](#d-012) | 2026-11-04 | TTK's segmentation arrays are scored by TTK's own maxima, not our stencil's | Active |
 | [D-013](#d-013) | 2026-11-04 | How `--regions` / `--saddles` treat parameters, presets and `--out` | Active (awaiting Priyank's review) |
+| [D-014](#d-014) | 2026-11-04 | Remove noise by simplifying the field with TTK before extraction | Active, scheduled after D-016 (premise corrected, see card) |
+| [D-015](#d-015) | 2026-11-04 | Simplification: every method sees the simplified field, it is what gets exported, threshold is a fraction of the range | Active, scheduled after D-016 |
+| [D-016](#d-016) | 2026-11-04 | Add a stencil matching TTK's triangulation first, then simplification | Active |
 
 ---
 
@@ -478,4 +481,97 @@ to `--out` too (surprising when the user named the folder).
 
 **Where in the code.** `config.py` · `parse_source`, `with_methods`; `run.py` ·
 `build_source`; `sources/composed_source.py` · `report`; tests `tests/test_config_methods.py`.
+
+---
+
+<a id="d-014"></a>
+### D-014 · Remove noise by simplifying the field with TTK before extraction
+
+**Date** 2026-11-04 · **Status** Active, scheduled after D-016. Its premise ("`ttk+ttk` overstates
+persistence") turned out wrong: the boundary rule understates it (M3_NOTES.md §3); kept as a
+noise cut ·
+**Decided by** Priyank (picked one of four options Claude offered)
+
+**The question.** On noisy data `ttk+ttk` overstates persistence (foot slice: 587 maxima
+above 5 % of the range vs 481 native) because TTK lacks some passes (M3_NOTES.md). The
+viewer's noise slider cuts by persistence, so it can't separate inflated noise peaks from
+real ones. What should the user get to "cut the noisy part"?
+
+**What we chose.** An optional simplification step: TTK's
+`ttkTopologicalSimplificationByPersistence` removes every feature below a persistence
+threshold from the field *before* extraction, so noise peaks and their saddles never appear.
+
+**Why.**
+- It removes the cause (noise features) instead of correcting numbers afterwards.
+- It is standard TTK practice, and the filter exists in our TTK 1.3.0 install
+  (`SetPersistenceThreshold`, `SetThresholdIsAbsolute`, `SetPairType`).
+
+**Options we didn't take.**
+- Restore lost passes (`fill: all`): removes the bias exactly, but makes `ttk+ttk`
+  persistence equal to `ttk+boundary`, so the saddle comparison loses its meaning.
+- Flag suspect peaks in `graph.json` and the viewer: transparent, but needs a file-contract
+  change and web work.
+- Viewer threshold only: no code, but the bias stays.
+
+**Revisit if** simplification on real data removes features users consider real at
+thresholds that are needed to remove the bias.
+
+---
+
+<a id="d-015"></a>
+### D-015 · How simplification fits the pipeline
+
+**Date** 2026-11-04 · **Status** Active, scheduled after D-016 · **Decided by** Priyank (picked Claude's
+recommended option on all three points)
+
+**The question.** Three design points of D-014: which methods see the simplified field, which
+field is exported, and in what unit the threshold is given.
+
+**What we chose.**
+
+| Point | Choice | Rejected |
+|---|---|---|
+| 1. Who sees the simplified field | **every** method (native, `ttk+boundary`, `ttk+ttk`) | only the TTK methods: they would be compared on different fields |
+| 2. What is exported and shown | **the simplified field**, so spine heights, regions and field agree | the original field for display: removed bumps would sit at heights no spine node has |
+| 3. Threshold unit | **fraction of the value range** by default (`simplify: 0.02`); `absolute: true` for raw values | absolute only: the same number would mean different things per dataset |
+
+**What it means later.**
+- Any run with `simplify` needs the TTK env, even a native one.
+- `graph.json` records `dataset.simplify` so a result can be traced to its threshold.
+- A simplified output is not the raw data: DEVIATIONS.md gets an entry.
+
+---
+
+<a id="d-016"></a>
+### D-016 · A stencil matching TTK's triangulation first, then simplification
+
+**Date** 2026-11-04 · **Status** Active · **Decided by** Priyank (picked Claude's
+recommendation, one of four options offered)
+
+**The question.** Checking against TTK's persistence diagram showed that the native-vs-TTK
+persistence gap comes mainly from our stencil, not from noise: our 8/26-neighbour stencil
+links both diagonals of every grid cell, TTK's triangulation only one. What do we build next?
+
+| foot slice, ascent+boundary | maxima with p ≥ 5 % | values shared with TTK's diagram |
+|---|---|---|
+| full stencil (8), today's default | 493 | 1703 / 1736 |
+| one-diagonal stencil (Freudenthal, orientation B) | 593 | 2080 / 2116 |
+| TTK persistence diagram | 579 | |
+
+**What we chose.** First add a stencil option that matches TTK's triangulation exactly (the
+diagonal convention pinned down until our local-maxima counts equal TTK's). Then build the
+simplification of D-014/D-015 on top as a noise cut. Today's defaults (8 / 26) stay, so every
+existing output reproduces (D-005).
+
+**Why.** It removes the root cause of the gap and makes native a fair reference for TTK;
+simplification alone left the gap unchanged (foot at 5 %: 500 / 488 / 583).
+
+**Options we didn't take.** Mesh stencil only (simplification shelved); simplification only
+(gap stays); document and stop.
+
+**Revisit if** no stencil orientation reproduces TTK's local maxima exactly; then the option is
+"close to TTK" rather than "same mesh as TTK", and the notes must say so.
+
+**Evidence.** `temp/evidence/persistence_vs_ttk_diagram.py`,
+`temp/evidence/freudenthal_stencil.py`, `temp/evidence/simplify_precheck.py` (working notes).
 
