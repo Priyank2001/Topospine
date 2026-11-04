@@ -11,7 +11,7 @@ ComposedSource joins one RegionMethod and one SaddleMethod into an ExtremumGraph
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Any, Protocol
 
 import numpy as np
 from numpy.typing import NDArray
@@ -57,6 +57,11 @@ class RegionMethod(Protocol):
 
     def labels(self, ctx: ExtractionContext) -> NDArray[np.int64]: ...
 
+    def report(self) -> dict[str, Any]:
+        """What the last run did, as plain JSON-ready values for the run summary and
+        graph.json ({} when there is nothing to say)."""
+        ...
+
 
 class SaddleMethod(Protocol):
     """Block 2: the saddles between the regions block 1 found.
@@ -69,3 +74,8 @@ class SaddleMethod(Protocol):
     requires_regions: str | None
 
     def saddles(self, ctx: ExtractionContext, labels: NDArray[np.int64]) -> SaddleSet: ...
+
+    def report(self) -> dict[str, Any]:
+        """What the last run did, as plain JSON-ready values for the run summary and
+        graph.json ({} when there is nothing to say)."""
+        ...

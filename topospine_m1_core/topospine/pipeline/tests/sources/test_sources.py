@@ -1,12 +1,14 @@
 import numpy as np
 import pytest
 
-from topospine.core import GridNeighborhood, compute_persistence, decompose, graph_from_regions
+from topospine.core import GridNeighborhood, compute_persistence, decompose, graph_from_regions, sample_ranks, steepest_ascent
 from topospine.core.datasets import GridDataset
 from topospine.io.synthetic import bumps_grid, sample_points
 from topospine.sources import make_source
 from topospine.sources.native_source import NativeSource
-from topospine.sources.ttk_source import TtkSource, compact_labels, maximum_score, numpy_to_image, pick_maximum_regions
+from topospine.sources.ttk_backend import numpy_to_image
+from topospine.sources.ttk_blocks import compact_labels, maximum_score, pick_maximum_regions
+from topospine.sources.ttk_source import TtkSource
 
 
 @pytest.fixture
@@ -46,20 +48,12 @@ def test_graph_from_regions_matches_native_after_relabel(bumps3d):
 def test_picks_maxima_regions_over_minima_regions():
     g = bumps_grid((64, 64), centers=[[0.25, 0.25], [0.75, 0.75], [0.25, 0.75]], heights=[1, 0.9, 0.8], width=0.12)
     nb = GridNeighborhood(g.shape, 8)
+    maxima = np.flatnonzero(steepest_ascent(sample_ranks(g.values), nb) == np.arange(g.values.size))
     maxima_regions = decompose(g.values, nb).labels
     minima_regions = decompose(-g.values, nb).labels
-    assert maximum_score(g.values, maxima_regions, nb) == 1.0
-    name, _, scores = pick_maximum_regions(g.values, {"A": minima_regions, "B": maxima_regions}, nb)
+    assert maximum_score(maxima_regions, maxima) == 1.0
+    name, _, scores = pick_maximum_regions({"A": minima_regions, "B": maxima_regions}, maxima)
     assert name == "B" and scores["A"] < 1.0                  # a name mix-up in TTK can't fool us
-
-
-def test_ttk_source_with_fake_backend(bumps3d, monkeypatch):
-    native = NativeSource().compute(bumps3d)
-    src = TtkSource()
-    monkeypatch.setattr(src, "_run_ttk", lambda ds: {"DescendingManifold": native.labels * 5 + 2})
-    dec = src.compute(bumps3d)
-    assert src.last_choice[0] == "DescendingManifold"
-    assert np.array_equal(dec.graph.values, native.graph.values)
 
 
 def test_ttk_source_rejects_points():

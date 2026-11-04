@@ -1,0 +1,18 @@
+# Same volume, both blocks from TTK: TTK's regions AND TTK's own saddles (M3, D-004).
+# TTK env only. Compare with out/gauss3d (native) and out/gauss3d_ttk (TTK regions only).
+# Same result as `python -m topospine.cli configs/gauss3d_ttk.yaml --saddles ttk`.
+name: gauss3d_ttk_ttk
+dataset:
+  type: synthetic
+  generator: bumps
+  params:
+    dims_xyz: [64, 64, 64]
+    centers: [[0.3, 0.3, 0.5], [0.7, 0.3, 0.5], [0.5, 0.7, 0.4], [0.5, 0.5, 0.8]]
+    heights: [1.0, 0.8, 0.7, 0.5]
+    width: 0.1
+extremum: maxima
+source:
+  regions: ttk
+  saddles: ttk
+  connectivity: 26
+output: ../out/gauss3d_ttk_ttk

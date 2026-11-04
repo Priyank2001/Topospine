@@ -11,7 +11,9 @@ dataset:
   generator: bumps         # synthetic only
   params: {dims_xyz: [128, 128]}
 extremum: maxima           # maxima | minima
-source: {type: native, connectivity: 8}
+source: {type: native, connectivity: 8}   # a preset: native | ttk
+# or pick the two blocks of extraction yourself (docs/DECISIONS.md D-004):
+# source: {regions: ttk, saddles: {type: ttk}, connectivity: 26}
 histogram_bins: 64
 field_encoding: uint8
 output: ../out/gauss2d
@@ -19,7 +21,8 @@ output: ../out/gauss2d
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from collections.abc import Mapping
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -36,10 +39,32 @@ class DatasetConfig:
     params: dict[str, Any] = field(default_factory=dict)
 
 
+SHARED_SOURCE_KEYS = ("connectivity", "k")   # neighbourhood settings both blocks share
+
+
+@dataclass(frozen=True)
+class MethodConfig:
+    """One block of extraction: a method name from the registry and its parameters."""
+
+    type: str
+    params: dict[str, Any] = field(default_factory=dict)
+
+
 @dataclass(frozen=True)
 class SourceConfig:
-    type: str = "native"
+    """Either a preset (`type` + its params) or two blocks (`regions`, `saddles`).
+
+    For two blocks, `params` holds only the shared keys (connectivity, k) and `type` is None.
+    """
+
+    type: str | None = "native"
     params: dict[str, Any] = field(default_factory=dict)
+    regions: MethodConfig | None = None
+    saddles: MethodConfig | None = None
+
+    @property
+    def composed(self) -> bool:
+        return self.regions is not None
 
 
 @dataclass(frozen=True)
@@ -75,11 +100,6 @@ def parse_config(raw: dict[str, Any], base_dir: Path) -> RunConfig:
     if ds_type != "synthetic" and path is None:
         raise ValueError(f"dataset type {ds_type!r} needs `path`")
 
-    src = dict(raw.get("source", {}))
-    src_type = src.pop("type", "native")
-    src_params = dict(src.pop("params", {}))
-    src_params.update(src)
-
     extremum = raw.get("extremum", "maxima")
     if extremum not in ("maxima", "minima"):
         raise ValueError("extremum must be 'maxima' or 'minima'")
@@ -93,12 +113,75 @@ def parse_config(raw: dict[str, Any], base_dir: Path) -> RunConfig:
     return RunConfig(
         name=str(raw["name"]),
         dataset=DatasetConfig(ds_type, path, generator, params),
-        source=SourceConfig(src_type, src_params),
+        source=parse_source(raw.get("source", {})),
         output=resolve(raw.get("output", f"../out/{raw['name']}")),
         extremum=extremum,
         histogram_bins=bins,
         field_encoding=encoding,
     )
+
+
+def _method(raw: Any, block: str) -> MethodConfig:
+    if isinstance(raw, str):
+        return MethodConfig(raw)
+    if not isinstance(raw, Mapping) or "type" not in raw:
+        raise ValueError(f"source.{block} must be a method name or a mapping with `type`")
+    m = dict(raw)
+    kind = str(m.pop("type"))
+    params = dict(m.pop("params", {}))
+    params.update(m)                       # allow params inline next to `type`
+    return MethodConfig(kind, params)
+
+
+def parse_source(raw: Mapping[str, Any]) -> SourceConfig:
+    src = dict(raw)
+    params = dict(src.pop("params", {}))
+    params.update({k: v for k, v in src.items() if k not in ("type", "regions", "saddles")})
+    has_blocks = "regions" in src or "saddles" in src
+    if not has_blocks:
+        return SourceConfig(str(src.get("type", "native")), params)
+    if "type" in src:
+        raise ValueError("source: give either a preset `type` or `regions` + `saddles`, not both")
+    if "regions" not in src or "saddles" not in src:
+        raise ValueError("source: `regions` and `saddles` go together")
+    extra = sorted(set(params) - set(SHARED_SOURCE_KEYS))
+    if extra:
+        raise ValueError(f"source: unknown keys {extra}; method parameters go under "
+                         f"`regions:` / `saddles:`, shared ones are {list(SHARED_SOURCE_KEYS)}")
+    return SourceConfig(None, params, _method(src["regions"], "regions"), _method(src["saddles"], "saddles"))
+
+
+def with_methods(cfg: RunConfig, preset_methods: Mapping[str, tuple[str, str]],
+                 regions: str | None = None, saddles: str | None = None) -> RunConfig:
+    """Override the config's methods (the --regions / --saddles flags, D-006).
+
+    A block whose method changes loses its YAML parameters; an unchanged block keeps them.
+    If a method changed, the output folder gets a `_<regions>-<saddles>` suffix so runs of
+    different combinations never overwrite each other. A preset config becomes two blocks;
+    only its shared keys (connectivity, k) carry over, since the others belong to one block.
+    """
+    if regions is None and saddles is None:
+        return cfg
+    src = cfg.source
+    if src.composed:
+        assert src.regions is not None and src.saddles is not None
+        cur_r, cur_s = src.regions, src.saddles
+    else:
+        if src.type not in preset_methods:
+            raise ValueError(f"unknown source {src.type!r}; choose from {sorted(preset_methods)}")
+        own = sorted(set(src.params) - set(SHARED_SOURCE_KEYS))
+        if own:
+            raise ValueError(f"preset parameters {own} can't be carried into --regions/--saddles; "
+                             "write the config's source as `regions:` + `saddles:` instead")
+        r, s = preset_methods[src.type]
+        cur_r, cur_s = MethodConfig(r), MethodConfig(s)
+    new_r = cur_r if regions in (None, cur_r.type) else MethodConfig(regions)
+    new_s = cur_s if saddles in (None, cur_s.type) else MethodConfig(saddles)
+    if (new_r, new_s) == (cur_r, cur_s):
+        return cfg                                            # flags repeat the config: nothing changed
+    shared = {k: v for k, v in src.params.items() if k in SHARED_SOURCE_KEYS}
+    output = cfg.output.with_name(f"{cfg.output.name}_{new_r.type}-{new_s.type}")
+    return replace(cfg, source=SourceConfig(None, shared, new_r, new_s), output=output)
 
 
 def load_config(path: str | Path) -> RunConfig:

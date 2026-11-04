@@ -57,7 +57,7 @@ def test_vti_roundtrip(tmp_path):
     pytest.importorskip("vtkmodules")
     from vtkmodules.vtkIOXML import vtkXMLImageDataWriter
 
-    from topospine.sources.ttk_source import numpy_to_image
+    from topospine.sources.ttk_backend import numpy_to_image
 
     values = np.arange(24.0).reshape(2, 3, 4)
     w = vtkXMLImageDataWriter()

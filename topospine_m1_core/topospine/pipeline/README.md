@@ -21,7 +21,17 @@ python -m topospine.cli configs/ring2d.yaml --preview --p-lo 0.05 --p-hi 0.9 --s
 python -m topospine.cli configs/ackley2d.yaml --preview --p-lo 0.05
 python -m topospine.cli configs/gauss3d.yaml          # 3-D, for the browser
 python -m topospine.cli configs/gauss3d_ttk.yaml      # same volume through TTK (TTK env only)
+
+# Swap one block of extraction from the command line (TTK env for `ttk`):
+python -m topospine.cli configs/gauss3d_ttk.yaml --saddles ttk     # -> out/gauss3d_ttk_ttk-ttk
 ```
+
+Extraction is two blocks: **regions** (`ascent` = ours, `ttk`) and **saddles** (`boundary` =
+ours, `ttk`; TTK saddles need TTK regions). In a config, either name a preset
+(`source: {type: native}` = ascent+boundary, `{type: ttk}` = ttk+boundary) or the blocks:
+`source: {regions: ttk, saddles: ttk, connectivity: 26}`. `--regions` / `--saddles` override
+the config and add a `_<regions>-<saddles>` suffix to the output folder (not to `--out`).
+`graph.json` records what ran under `dataset.source` and `dataset.extraction`.
 
 Outputs go to `pipeline/out/<name>/` (graph.json, labels.bin, regions.bin, field.bin or
 points.bin, preview.png). The format is described in `schema/spine.schema.json`.

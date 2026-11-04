@@ -43,8 +43,9 @@ Each entry: what the paper says (or doesn't), what we do, and why.
 9. **TTK adapter uses TTK's regions, not its separatrices.** TTK's separatrix arrays and port
    layout differ between releases; the per-vertex manifold ids are stable. We take TTK's
    maximum regions and derive saddles with our own boundary rule (#2). The array holding the
-   maximum regions is detected automatically (regions with exactly one local maximum), so a
-   naming-convention mix-up can't silently produce a minimum graph.
+   maximum regions is detected automatically (regions with exactly one of TTK's own maxima,
+   DECISIONS.md D-012), so a naming-convention mix-up can't silently produce a minimum graph.
+   This is the `ttk` preset. Since M3, TTK's own saddles are available too (`ttk+ttk`, #17).
 10. **Axis conventions.** Grid arrays are (z, y, x) with x fastest (VTK and WebGL 3D-texture
     order); configs and exported metadata use (x, y, z). Point positions are exported in the
     normalised space the kNN graph was built in, with `offset`/`scale` to undo it.
@@ -75,3 +76,11 @@ Each entry: what the paper says (or doesn't), what we do, and why.
 16. **Starting noise threshold.** Not in the paper (which reads plateaus off the plot by eye):
     the app opens at the geometric middle of the widest ratio gap between consecutive extremum
     persistences, or 1 % of the maximum if no gap ≥ 3× exists.
+
+## M3 (composable extraction)
+
+17. **TTK saddles (M3, `ttk` saddle method).** Only saddles with exactly two uphill
+    separatrices become graph saddles; saddles where a path runs into the domain border are
+    dropped (DECISIONS.md D-009). If that leaves the peaks in separate pieces, our boundary
+    saddles (#2) are added, highest first, only where they join two pieces (D-011), so the
+    graph has one global maximum. Saddles joining 3+ peaks stop the run (D-010).

@@ -1,31 +1,25 @@
-"""Our own backend: steepest ascent on a grid stencil or a symmetrised kNN graph.
+"""Our own backend: the `ascent+boundary` preset of ComposedSource.
 
-Works for every dataset kind, needs only NumPy/SciPy, and is the reference the
-TTK/TACHYON adapters are compared against.
+Steepest ascent on a grid stencil or a symmetrised kNN graph, then our boundary
+saddles. Works for every dataset kind, needs only NumPy/SciPy, and is the reference
+the TTK adapters are compared against.
+
+Kept as a named class (not just a registry entry) so `NativeSource(connectivity, k)`
+and `source: {type: native}` configs keep working unchanged (D-005). It adds no
+behaviour: the neighbourhood and the compute step are ComposedSource's.
+Its name stays "native" so meta.json is unchanged until run.py records the two
+methods separately (D-006, file 7 of M3).
 """
 
 from __future__ import annotations
 
-from topospine.core.datasets import Dataset, GridDataset
-from topospine.core.gradient_flow import FlowDecomposition, decompose
-from topospine.core.neighborhoods import GridNeighborhood, KnnNeighborhood, Neighborhood
+from topospine.sources.composed_source import DEFAULT_K, ComposedSource
+from topospine.sources.native_blocks import AscentRegions, BoundarySaddles
 
 
-class NativeSource:
-    name = "native"
+class NativeSource(ComposedSource):
+    METHODS = ("ascent", "boundary")      # the pair this preset fixes (read by PRESET_METHODS)
 
-    def __init__(self, connectivity: int | None = None, k: int = 15) -> None:
-        """connectivity: grid stencil size (default: the full stencil, 8 in 2-D / 26 in 3-D,
-        which gives far fewer spurious maxima on noisy data than the face stencil).
-        k: neighbours per point for point data."""
-        self.connectivity = connectivity
-        self.k = int(k)
-
-    def neighborhood(self, dataset: Dataset) -> Neighborhood:
-        if isinstance(dataset, GridDataset):
-            conn = self.connectivity or (3 ** len(dataset.shape) - 1)
-            return GridNeighborhood(dataset.shape, conn)
-        return KnnNeighborhood(dataset.points, self.k)
-
-    def compute(self, dataset: Dataset) -> FlowDecomposition:
-        return decompose(dataset.values, self.neighborhood(dataset))
+    def __init__(self, connectivity: int | None = None, k: int = DEFAULT_K) -> None:
+        super().__init__(AscentRegions(), BoundarySaddles(), connectivity=connectivity, k=k)
+        self.name = "native"

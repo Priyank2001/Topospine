@@ -55,7 +55,7 @@ and how peaks connect. It does this in two separate programs:
 Think of it as a factory line: **config → dataset → graph → importance → statistics → files.**
 
 ```
- config.yaml ─▶ readers / synthetic ─▶ Dataset ─▶ Source (native | TTK) ─▶ FlowDecomposition
+ config.yaml ─▶ readers / synthetic ─▶ Dataset ─▶ Source (regions + saddles) ─▶ FlowDecomposition
                                                                             │
      files ◀── exporter ◀── region histograms ◀── persistence (Algorithm 1) ◀┘
 ```
@@ -63,9 +63,9 @@ Think of it as a factory line: **config → dataset → graph → importance →
 ### Entry points
 | Component | Role in one sentence |
 |---|---|
-| `cli.py` | The command you type: reads arguments, calls `run_pipeline`. Nothing else. |
-| `config.py` | Reads one YAML file into a typed `RunConfig`; resolves paths relative to the YAML. |
-| `run.py` | The conductor: runs each step of the line in order and times it. Tests call it directly. |
+| `cli.py` | The command you type: reads arguments (including `--regions` / `--saddles`, D-006), calls `run_pipeline`. Nothing else. |
+| `config.py` | Reads one YAML file into a typed `RunConfig`; resolves paths relative to the YAML. `source:` is either a preset (`{type: native}`) or two blocks (`{regions: …, saddles: …, connectivity, k}`). `with_methods` applies the command-line overrides and adds the output-folder suffix (D-006, D-013). |
+| `run.py` | The conductor: builds the source (first, so a bad method pair fails before data loads), runs each step in order and times it, and records in `graph.json` how the graph was made (`source`, `extraction`: each block's method and report). Tests call it directly. |
 
 ### Core (`core/`, pure NumPy: no files, no TTK, no VTK)
 | Component | Role |
@@ -73,6 +73,7 @@ Think of it as a factory line: **config → dataset → graph → importance →
 | `datasets.py` | Two containers: `GridDataset` (values on a regular grid) and `PointDataset` (scattered points in d dimensions). Everything downstream accepts either. |
 | `neighborhoods.py` | Answers one question, "who are each sample's neighbours?": a grid stencil for grids, a k-nearest-neighbour graph for points. Streams edges in blocks to save memory. |
 | `gradient_flow.py` | Walks every sample uphill to its peak (giving regions) and finds the saddle between each pair of touching regions (`boundary_saddles`). Whatever method found the regions and saddles, `assemble_flow` turns them into the graph; a saddle method hands it a `SaddleSet` (each saddle's sample and the two regions it joins). |
+| `reconnect.py` | Joins a saddle set that leaves the peaks in separate pieces (groups with no saddle between them): adds candidate saddles highest first, only where they connect two pieces. Without it, each piece's top would look like a second global maximum. Used by the TTK saddle method (D-011). |
 | `graph.py` | The extremum graph data structure that every source produces, so the next step is written once. |
 | `persistence.py` | The paper's Algorithm 1: computes P and P* by cancelling the least important peak first. |
 | `extremum_graph.py` | Eqs. 1–3: given [pLo, pHi], which peaks, saddles and arcs stay. Reference for the web version. |
@@ -85,9 +86,14 @@ Think of it as a factory line: **config → dataset → graph → importance →
 | `io/synthetic.py` | Generates test data with known answers (bumps, ring, Ackley, Schwefel, Gaussian mixtures). |
 | `io/exporter.py` | Writes (and reads back) the file contract. |
 | `sources/base.py` | The interfaces of graph extraction: the whole job (`ExtremumGraphSource`: `compute(dataset) → FlowDecomposition`) and its two blocks, `RegionMethod` (which peak each sample flows up to) and `SaddleMethod` (the saddles between those regions). `ExtractionContext` is what both blocks of one run share: the dataset, its ranks, the neighbourhood. |
+| `sources/__init__.py` | The registries: `REGION_METHODS` (`ascent`, `ttk`), `SADDLE_METHODS` (`boundary`, `ttk`) and `PRESETS` (`native`, `ttk`). `compose_source(regions, saddles, …)` builds any allowed pair; `make_source(preset)` keeps old configs working (D-005). Each run gets a fresh `SharedResources`, so its two TTK blocks share one TTK run. |
 | `sources/composed_source.py` | `ComposedSource` joins one region method and one saddle method into a backend. It builds the shared context once, refuses incompatible pairs before any data is loaded (DECISIONS.md D-007), and owns the neighbourhood settings (grid stencil, k). |
-| `sources/native_source.py` | Our own backend (steepest ascent). Works for grids and points. |
-| `sources/ttk_source.py` | TTK backend: uses TTK's regions, our saddle rule. New backend = one file + one entry in `SOURCES`. |
+| `sources/native_blocks.py` | Our two blocks: `AscentRegions` (`ascent`: follow the steepest uphill neighbour to a peak) and `BoundarySaddles` (`boundary`: one saddle per pair of touching regions, at their highest shared edge). `boundary` works with any region method. |
+| `sources/native_source.py` | Our own backend: the `ascent+boundary` preset of `ComposedSource`, kept as a named class so `source: {type: native}` configs still work (D-005). Works for grids and points. |
+| `sources/ttk_backend.py` | The only code that talks to TTK/VTK. Runs TTK's Morse–Smale complex and copies every output port into plain read-only NumPy (`MorseSmaleOutput`). `TtkBackend` remembers the last dataset's result, so a run that uses TTK for both regions and saddles calls TTK once. It does not interpret the arrays; the TTK blocks do. |
+| `sources/ttk_output.py` | The one place that knows TTK's output layout (array names, which port holds what, per-dimension cell ids). Reads TTK's maxima and its saddles with the two peaks each joins; drops saddles with fewer than two uphill paths (D-009), stops on more (D-010). Pure NumPy; names overridable via `TtkArrayNames`. |
+| `sources/ttk_blocks.py` | TTK's two blocks, sharing one `TtkBackend`. `TtkRegions` (`ttk`) picks the segmentation array whose regions each hold exactly one of TTK's maxima (D-012). `TtkSaddles` (`ttk`) uses TTK's saddles and, if the peaks are left in pieces, adds our highest boundary saddles to join them (D-011); it reports kept / dropped / added. Works only with TTK regions (D-007). |
+| `sources/ttk_source.py` | The M1 TTK backend, now the `ttk+boundary` preset of `ComposedSource`: TTK's regions, our saddle rule. Kept as a named class so `source: {type: ttk}` configs still work (D-005). |
 | `viz/preview2d.py`, `scripts/preview_2d.py` | A static PNG check of a 2-D result, made only from the exported files. |
 | `scripts/make_web_fixtures.py` | Writes the tiny datasets the web tests use. |
 | `configs/*.yaml` | One file per dataset run, so every result is one command away. |
@@ -315,7 +321,8 @@ mean something else in another dataset.
 | You want to add… | Create | Register / wire | Don't touch |
 |---|---|---|---|
 | A file format (pipeline) | a reader function in `io/readers.py` | `READERS` entry | other readers |
-| A graph backend (pipeline) | `sources/<name>_source.py` implementing `ExtremumGraphSource` | `SOURCES` entry | `run.py`, core |
+| A region method or saddle method (pipeline) | a class implementing `RegionMethod` or `SaddleMethod` (`sources/base.py`) + test; set `requires_regions` if a saddle method only works with one region method | one entry in `REGION_METHODS` / `SADDLE_METHODS` (`sources/__init__.py`); anything both blocks of a run must share goes on `SharedResources` | `ComposedSource`, `run.py`, core |
+| A named preset (pipeline) | a `ComposedSource` subclass fixing the pair (like `native_source.py`) | `PRESETS` entry | the blocks |
 | A colour map | function in `core/` | mapper that picks colour maps | views |
 | A projection (high-D → 2-D) [planned] | `core/projection/<name>.ts` implementing `ProjectionStrategy` + test | projection registry | views, presenters |
 | A new view of the data | `views/<name>/contract.ts`, the view, `presenters/<Name>Presenter.ts` (extends `Presenter`), tests with a fake view | `main.ts` | other views/presenters |
@@ -344,6 +351,11 @@ the same contracts.
 ---
 
 ## 7. History
+
+**Composable extraction (M3, November 2026).** Graph extraction was split into two swappable
+blocks, regions and saddles, joined by `ComposedSource`, so native and TTK can be compared
+one step at a time; TTK's own saddles became a second saddle method. The old `native` and
+`ttk` sources live on as presets. Results and caveats: `docs/M3_NOTES.md`.
 
 **Linked selection (F1, November 2026).** Hover, click and shift-click nodes on the spine;
 rings, plot ticks and a details list stay in sync through `SelectionModel`. `SpineView` was

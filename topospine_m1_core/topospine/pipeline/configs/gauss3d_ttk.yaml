@@ -1,4 +1,6 @@
-# Same volume through TTK: compare out/gauss3d_ttk with out/gauss3d (M1 cross-check).
+# Same volume through TTK's regions + our boundary saddles (the `ttk` preset, D-005):
+# compare out/gauss3d_ttk with out/gauss3d (M1 cross-check). TTK env only.
+# For TTK's own saddles too, see gauss3d_ttk_ttk.yaml or add `--saddles ttk`.
 name: gauss3d_ttk
 dataset:
   type: synthetic

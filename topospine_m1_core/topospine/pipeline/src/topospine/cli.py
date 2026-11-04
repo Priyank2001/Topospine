@@ -1,4 +1,9 @@
-"""Command line: python -m topospine.cli configs/gauss2d.yaml [--out DIR] [--preview]"""
+"""Command line: python -m topospine.cli configs/gauss2d.yaml [--out DIR] [--preview]
+                                     [--regions ascent|ttk] [--saddles boundary|ttk]
+
+--regions / --saddles override the config's methods (DECISIONS.md D-006); the output folder
+then gets a `_<regions>-<saddles>` suffix unless --out names it explicitly.
+"""
 
 from __future__ import annotations
 
@@ -6,8 +11,9 @@ import argparse
 import sys
 from pathlib import Path
 
-from topospine.config import load_config
+from topospine.config import load_config, with_methods
 from topospine.run import run_pipeline
+from topospine.sources import PRESET_METHODS, REGION_METHODS, SADDLE_METHODS
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -19,9 +25,13 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--p-hi", type=float, default=float("inf"), help="variation threshold for the preview")
     ap.add_argument("--saturation", choices=["paper", "cancel"], default="paper",
                     help="which P* the preview uses (see docs/DEVIATIONS.md #8)")
+    ap.add_argument("--regions", choices=sorted(REGION_METHODS), default=None,
+                    help="region method, overriding the config")
+    ap.add_argument("--saddles", choices=sorted(SADDLE_METHODS), default=None,
+                    help="saddle method, overriding the config")
     args = ap.parse_args(argv)
 
-    cfg = load_config(args.config)
+    cfg = with_methods(load_config(args.config), PRESET_METHODS, args.regions, args.saddles)
     result = run_pipeline(cfg, args.out)
     print(result.summary())
 

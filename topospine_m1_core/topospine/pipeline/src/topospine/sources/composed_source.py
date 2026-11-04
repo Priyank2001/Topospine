@@ -11,6 +11,8 @@ means. Does not know any concrete method: those come from the registries.
 
 from __future__ import annotations
 
+from typing import Any
+
 from topospine.core.datasets import Dataset, GridDataset
 from topospine.core.gradient_flow import FlowDecomposition, assemble_flow, sample_ranks
 from topospine.core.neighborhoods import GridNeighborhood, KnnNeighborhood, Neighborhood
@@ -46,3 +48,9 @@ class ComposedSource:
         ctx = ExtractionContext(dataset, sample_ranks(dataset.values), self.neighborhood(dataset))
         labels = self.regions.labels(ctx)
         return assemble_flow(dataset.values, labels, self.saddles.saddles(ctx, labels), ctx.ranks)
+
+    def report(self) -> dict[str, Any]:
+        """Which methods ran, with what neighbourhood, and what each block reported (D-006)."""
+        return {"regions": {"method": self.regions.name, **self.regions.report()},
+                "saddles": {"method": self.saddles.name, **self.saddles.report()},
+                "connectivity": self.connectivity, "k": self.k}

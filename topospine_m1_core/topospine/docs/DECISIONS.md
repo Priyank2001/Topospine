@@ -36,6 +36,11 @@ the old one's status line only.
 | [D-006](#d-006) | 2026-11-04 | `--regions` / `--saddles` command-line flags can override the YAML | Active |
 | [D-007](#d-007) | 2026-11-04 | TTK saddles are only allowed together with TTK regions | Active |
 | [D-008](#d-008) | 2026-11-04 | Caller-supplied `ranks` are checked to be a permutation, not trusted | Active |
+| [D-009](#d-009) | 2026-11-04 | TTK saddles with fewer than two uphill separatrices are dropped | Changed by D-011 |
+| [D-010](#d-010) | 2026-11-04 | A TTK saddle with more than two uphill separatrices is an error, not split | Active |
+| [D-011](#d-011) | 2026-11-04 | When TTK's saddles leave the peaks in pieces, join the pieces with our highest boundary saddles | Active; revisit condition met (M3_NOTES.md) |
+| [D-012](#d-012) | 2026-11-04 | TTK's segmentation arrays are scored by TTK's own maxima, not our stencil's | Active |
+| [D-013](#d-013) | 2026-11-04 | How `--regions` / `--saddles` treat parameters, presets and `--out` | Active (awaiting Priyank's review) |
 
 ---
 
@@ -284,3 +289,193 @@ Callers should get ranks from `sample_ranks(values)` of the same values.
 **Where in the code.** `core/gradient_flow.py` · `_sample_at_rank`, `assemble_flow`; tests
 `test_*_rejects_ranks_that_are_not_a_permutation`. Full explanation with evidence:
 `temp/explanation.md` (working notes, not part of the docs).
+
+---
+
+<a id="d-009"></a>
+### D-009 · TTK saddles with fewer than two uphill separatrices are dropped
+
+**Date** 2026-11-04 · **Status** Changed by D-011 · **Decided by** Priyank
+(approved Claude's recommendation, one of three options offered)
+
+**The question.** An uphill separatrix is the path from a saddle up to a peak. In our graph
+every saddle has exactly two arcs, one to each peak it joins. Many of TTK's saddles have
+fewer than two uphill separatrices, because a path runs into the domain border instead of
+reaching a peak. What should the `ttk` saddle method do with them?
+
+| Dataset | saddles | 2 uphill | 1 uphill (border / interior) | 0 uphill |
+|---|---|---|---|---|
+| clean `bumps3d` | 9 | 1 | 8 (8 / 0) | 0 |
+| noisy `bumps3d` (σ = 0.02) | 883 | 392 | 449 (235 / 214) | 42 |
+
+**What we chose.** Drop them. Each run reports how many were dropped (`SaddleReport`).
+
+**Why.**
+- A pass between peaks needs two peaks. A one-sided saddle has no second peak to join.
+- On clean `bumps3d` this leaves exactly the one real saddle, so `ttk+ttk` matches native.
+
+**Options we didn't take.**
+- Make them a loop back to the one peak they reach: keeps every TTK saddle, but adds an arc
+  TTK never produced and hundreds of loop nodes on noisy data.
+- A config switch `drop | loop`: more code and settings for a comparison nobody asked for yet.
+
+**What it means later (found right after the decision, same day).** On noisy `bumps3d`,
+`ttk+ttk` has 5 maxima with infinite persistence instead of 1: some peaks were linked to
+the rest only through dropped saddles, so the graph falls apart into pieces. A loop would
+not fix this either. See "Revisit if".
+
+**Revisit if** a `ttk+ttk` graph has more than one maximum of infinite persistence, which
+already happens on noisy 3-D data. Needs a follow-up decision.
+
+**Where in the code.** `sources/ttk_blocks.py` · `ttk_saddles`, `SaddleReport`; tests
+`test_reads_passes_loops_and_drops_one_sided`, `test_real_ttk_plus_ttk_on_clean_bumps3d`.
+Evidence: `temp/evidence/ttk_saddle_survey.py`, `temp/evidence/ttk_one_sided_saddles.py`.
+Deviation: `DEVIATIONS.md` #17.
+
+---
+
+<a id="d-010"></a>
+### D-010 · A TTK saddle with more than two uphill separatrices is an error
+
+**Date** 2026-11-04 · **Status** Active · **Decided by** Priyank (approved Claude's
+recommendation over the original plan to split them)
+
+**The question.** A degenerate saddle joins three or more peaks at once. What should the
+`ttk` saddle method do if TTK reports one?
+
+**What we chose.** Stop with a `ValueError` that names the saddle's cell and sample.
+
+**Why.**
+- None appeared on any test dataset, including noisy 3-D (883 saddles), once separatrices
+  were grouped per saddle *cell*. (Grouping per *sample* had produced false 3-way saddles:
+  two TTK cells can share their highest vertex.)
+- Splitting rules for a case we have never seen would be untested guesswork.
+
+**Options we didn't take.** Split a k-way saddle into k − 1 saddles at the same sample,
+chained over its peaks (the original plan). Easy to add later if real data needs it.
+
+**Revisit if** the error ever fires on a real dataset.
+
+**Where in the code.** `sources/ttk_blocks.py` · `ttk_saddles`; test
+`test_degenerate_saddle_is_an_error`.
+
+---
+
+<a id="d-011"></a>
+### D-011 · Join the pieces TTK's saddles leave with our highest boundary saddles
+
+**Date** 2026-11-04 · **Status** Active; its "revisit if" condition was met on
+`klacansky_aneurism` (61 added vs 159 kept), see M3_NOTES.md · **Decided by** Priyank
+(picked option (b) of three Claude offered)
+
+**The question.** After D-009, `ttk+ttk` on noisy `bumps3d` split into pieces: groups of
+peaks with no saddle between them. Each piece's top got infinite persistence, so the run
+showed 5 "global maxima" instead of 1. How do we fix that?
+
+**What we chose.** (b) Keep every TTK saddle. If the peaks are still in more than one piece,
+run our boundary rule on TTK's regions and add its saddles **highest first**, each only if
+it joins two different pieces. This is Kruskal's algorithm for a maximum spanning forest:
+every piece is joined to the rest at its highest pass, as a merge tree would do.
+
+| noisy `bumps3d` (σ = 0.02) | maxima | saddles | maxima with infinite persistence |
+|---|---|---|---|
+| native | 159 | 685 | 1 |
+| `ttk+boundary` | 136 | 705 | 1 |
+| `ttk+ttk` before (D-009 only) | 136 | 392 | 5 |
+| `ttk+ttk` now | 136 | 395 (392 TTK + 3 ours) | 1 |
+
+**Why.**
+- Persistence needs one connected graph. Infinite persistence on a small noise peak is
+  plainly wrong, and the spine would draw it as a top-level feature.
+- Few of our saddles are added (3 here), and none when TTK's saddles already connect
+  everything (clean `bumps3d`: 0), so `ttk+ttk` stays as close to TTK as possible.
+- The boundary rule already works on TTK's regions (it is the `ttk` preset's saddle rule).
+
+**Options we didn't take.**
+- (a) Leave the pieces and document `ttk+ttk` as useful only on clean data.
+- Loops for one-sided saddles (the rejected D-009 option): a loop joins a peak to itself,
+  so it can't connect pieces.
+
+**What it means later.** `ttk+ttk` is no longer pure TTK: the run summary must show how
+many saddles were added (`SaddleReport.added`). The added saddles are ours, placed on the
+highest border edge between pieces (DEVIATIONS.md #2), not TTK's exact saddle.
+
+**Revisit if** `added` is large compared with `kept` on real data: then most of the graph
+would come from our rule, and `ttk+boundary` is the more honest comparison.
+
+**Where in the code.** `core/reconnect.py` · `count_pieces`, `connect_pieces`;
+`sources/ttk_blocks.py` · `TtkSaddles.saddles`; tests `tests/core/test_reconnect.py`,
+`test_lost_separatrices_are_bridged_by_the_highest_boundary_saddle`.
+
+---
+
+<a id="d-012"></a>
+### D-012 · TTK's segmentation arrays are scored by TTK's own maxima
+
+**Date** 2026-11-04 · **Status** Active · **Decided by** Priyank (approved Claude's
+recommendation)
+
+**The question.** TTK gives two segmentation arrays (`AscendingManifold`,
+`DescendingManifold`); which one holds the maxima's regions depends on TTK's naming
+convention, so the M1 code scores each one: the fraction of its regions holding exactly
+one maximum. Since M1 the maxima were found with **our** stencil. On noisy `bumps3d` no
+array reached the 0.5 cut-off (Ascending 0.49, Descending 0.30), so the `ttk` preset failed.
+
+**What we chose.** Count **TTK's own maxima** (its top-dimension critical cells) per region.
+
+**Why.**
+- Exact: each of TTK's maxima regions holds exactly one of TTK's maxima. Our stencil and
+  TTK's mesh disagree on what a local maximum is (159 vs 135 here), which is what dragged
+  the right array below the cut-off.
+- Result on noisy `bumps3d`: Ascending 0.99, Descending 0.24. The right array wins clearly.
+
+**Options we didn't take.** Lowering `min_score`: hides the mismatch rather than removing it,
+and a lower cut-off would also let a wrong array through.
+
+**What it means later.** Region picking now needs TTK's critical-points output (it already
+runs; no extra cost). The 0.5 cut-off stays as a guard.
+
+**Where in the code.** `sources/ttk_blocks.py` · `maximum_score`, `pick_maximum_regions`,
+`TtkRegions`; `sources/ttk_output.py` · `ttk_maxima`; test
+`test_regions_are_scored_by_ttk_maxima_not_our_stencil`.
+
+---
+
+<a id="d-013"></a>
+### D-013 · How the method flags treat parameters, presets and `--out`
+
+**Date** 2026-11-04 · **Status** Active (awaiting Priyank's review) · **Decided by** Claude
+chose, while implementing D-006; not yet reviewed by Priyank
+
+**The question.** D-006 says `--regions` / `--saddles` override the config. It doesn't say
+what happens to the YAML parameters of a block, to a preset config, or to `--out`.
+
+**What we chose.**
+
+| Case | Behaviour |
+|---|---|
+| A flag names the method the config already uses | nothing changes: same config, no suffix |
+| A flag changes a block's method | that block's YAML parameters are dropped (they belonged to the old method); the other block keeps its own |
+| The config is a preset (`type: native` / `ttk`) | it becomes two blocks; only the shared keys (`connectivity`, `k`) carry over |
+| A preset config has its own keys (e.g. `min_score`) | error: rewrite the config as `regions:` + `saddles:` |
+| `--out DIR` is given | used exactly as given, no suffix |
+
+`graph.json` records the result under `dataset.source` (e.g. `ttk+ttk`) and
+`dataset.extraction` (each block's method and report, plus `connectivity` and `k`). The
+source is built before the data loads, so a bad pair (D-007) fails at once.
+
+**Why.**
+- Parameters of one method mean nothing to another (`min_score` is a TTK regions setting).
+  Silently passing them on would either crash or, worse, be ignored.
+- Preset parameters don't say which block they belong to; guessing would hide mistakes.
+- `--out` is the user saying exactly where to write.
+
+**Options we didn't take.** Mapping preset parameters to blocks automatically (needs every
+preset to describe its parameters; not worth it while no config uses them). Adding the suffix
+to `--out` too (surprising when the user named the folder).
+
+**Revisit if** a sweep needs block parameters on the command line (e.g. `--regions-param`).
+
+**Where in the code.** `config.py` · `parse_source`, `with_methods`; `run.py` ·
+`build_source`; `sources/composed_source.py` · `report`; tests `tests/test_config_methods.py`.
+

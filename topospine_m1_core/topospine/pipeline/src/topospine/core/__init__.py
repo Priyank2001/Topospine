@@ -28,6 +28,7 @@ from topospine.core.gradient_flow import (
 from topospine.core.graph import GradientFlowGraph, NodeKind
 from topospine.core.neighborhoods import GridNeighborhood, KnnNeighborhood, Neighborhood
 from topospine.core.persistence import Persistence, compute_persistence
+from topospine.core.reconnect import connect_pieces, count_pieces
 from topospine.core.region_stats import RegionHistograms, region_histograms
 
 __all__ = [
@@ -45,6 +46,8 @@ __all__ = [
     "assemble_flow",
     "boundary_saddles",
     "compute_persistence",
+    "connect_pieces",
+    "count_pieces",
     "decompose",
     "extrema_curve",
     "filter_graph",
