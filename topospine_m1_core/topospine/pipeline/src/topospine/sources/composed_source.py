@@ -6,27 +6,41 @@
                                      assemble_flow  ─► FlowDecomposition
 
 Owns the run's neighbourhood (stencil / k) so both blocks agree on what "neighbour"
-means. Does not know any concrete method: those come from the registries.
+means, and is the one place that picks a stencil. Does not know any concrete method:
+those come from the registries.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
 from typing import Any
 
 from topospine.core.datasets import Dataset, GridDataset
 from topospine.core.gradient_flow import FlowDecomposition, assemble_flow, sample_ranks
-from topospine.core.neighborhoods import GridNeighborhood, KnnNeighborhood, Neighborhood
+from topospine.core.neighborhoods import FreudenthalNeighborhood, GridNeighborhood, KnnNeighborhood, Neighborhood
 from topospine.sources.base import ExtractionContext, RegionMethod, SaddleMethod
 
 DEFAULT_K = 15
 
+# How a config names the grid stencil: a size (4/8 in 2-D, 6/18/26 in 3-D), a name from
+# NAMED_STENCILS, or None for the full stencil (8 / 26).
+Connectivity = int | str | None
+
+NAMED_STENCILS: dict[str, Callable[[Sequence[int]], Neighborhood]] = {
+    "ttk": FreudenthalNeighborhood,     # TTK's triangulated grid (D-016, D-017)
+}
+
 
 class ComposedSource:
     def __init__(self, regions: RegionMethod, saddles: SaddleMethod,
-                 connectivity: int | None = None, k: int = DEFAULT_K) -> None:
+                 connectivity: Connectivity = None, k: int = DEFAULT_K) -> None:
         """connectivity: grid stencil size (default: the full stencil, 8 in 2-D / 26 in 3-D,
-        which gives far fewer spurious maxima on noisy data than the face stencil).
+        which gives far fewer spurious maxima on noisy data than the face stencil), or a
+        name from NAMED_STENCILS ("ttk": TTK's mesh, 6 / 14 neighbours).
         k: neighbours per point for point data."""
+        if isinstance(connectivity, str) and connectivity not in NAMED_STENCILS:
+            raise ValueError(f"unknown connectivity {connectivity!r}; use a stencil size or one of "
+                             f"{sorted(NAMED_STENCILS)}")
         need = saddles.requires_regions
         if need is not None and need != regions.name:
             # Fail before any data is loaded (D-007 explains why the mix is unsafe).
@@ -40,8 +54,11 @@ class ComposedSource:
 
     def neighborhood(self, dataset: Dataset) -> Neighborhood:
         if isinstance(dataset, GridDataset):
-            conn = self.connectivity or (3 ** len(dataset.shape) - 1)
-            return GridNeighborhood(dataset.shape, conn)
+            if isinstance(self.connectivity, str):
+                return NAMED_STENCILS[self.connectivity](dataset.shape)
+            return GridNeighborhood(dataset.shape, self.connectivity or (3 ** len(dataset.shape) - 1))
+        if isinstance(self.connectivity, str):
+            raise ValueError(f"connectivity {self.connectivity!r} applies to grids; point data uses `k`")
         return KnnNeighborhood(dataset.points, self.k)
 
     def compute(self, dataset: Dataset) -> FlowDecomposition:

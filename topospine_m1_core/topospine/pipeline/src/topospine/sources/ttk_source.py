@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from topospine.sources.composed_source import ComposedSource
+from topospine.sources.composed_source import ComposedSource, Connectivity
 from topospine.sources.native_blocks import BoundarySaddles
 from topospine.sources.ttk_backend import TtkBackend
 from topospine.sources.ttk_blocks import DEFAULT_CANDIDATES, DEFAULT_MIN_SCORE, TtkRegions
@@ -21,7 +21,7 @@ from topospine.sources.ttk_blocks import DEFAULT_CANDIDATES, DEFAULT_MIN_SCORE, 
 class TtkSource(ComposedSource):
     METHODS = ("ttk", "boundary")         # the pair this preset fixes (read by PRESET_METHODS)
 
-    def __init__(self, connectivity: int | None = None, candidates: Sequence[str] = DEFAULT_CANDIDATES,
+    def __init__(self, connectivity: Connectivity = None, candidates: Sequence[str] = DEFAULT_CANDIDATES,
                  min_score: float = DEFAULT_MIN_SCORE, backend: TtkBackend | None = None) -> None:
         self._ttk_regions = TtkRegions(backend, candidates, min_score)
         super().__init__(self._ttk_regions, BoundarySaddles(), connectivity=connectivity)

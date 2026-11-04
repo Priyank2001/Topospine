@@ -44,6 +44,7 @@ the old one's status line only.
 | [D-014](#d-014) | 2026-11-04 | Remove noise by simplifying the field with TTK before extraction | Active, scheduled after D-016 (premise corrected, see card) |
 | [D-015](#d-015) | 2026-11-04 | Simplification: every method sees the simplified field, it is what gets exported, threshold is a fraction of the range | Active, scheduled after D-016 |
 | [D-016](#d-016) | 2026-11-04 | Add a stencil matching TTK's triangulation first, then simplification | Active |
+| [D-017](#d-017) | 2026-11-04 | The TTK-mesh stencil is selected with `connectivity: ttk` | Active |
 
 ---
 
@@ -574,4 +575,29 @@ simplification alone left the gap unchanged (foot at 5 %: 500 / 488 / 583).
 
 **Evidence.** `temp/evidence/persistence_vs_ttk_diagram.py`,
 `temp/evidence/freudenthal_stencil.py`, `temp/evidence/simplify_precheck.py` (working notes).
+
+---
+
+<a id="d-017"></a>
+### D-017 · The TTK-mesh stencil is selected with `connectivity: ttk`
+
+**Date** 2026-11-04 · **Status** Active · **Decided by** Priyank (picked Claude's proposed
+name over the alternative)
+
+**The question.** How does a config ask for the stencil of D-016 (the edges of TTK's
+triangulated grid: one diagonal per square, 6 neighbours in 2-D, 14 in 3-D)?
+
+**What we chose.** `connectivity: ttk`. In code the class is `FreudenthalNeighborhood`, the
+textbook name of this subdivision.
+
+**Why.** The config name says what it matches, so a user comparing with TTK finds it.
+
+**Options we didn't take.**
+- `connectivity: freudenthal`: precise, but only meaningful to someone who knows the term.
+- A number (`6` / `14`): `6` already means "faces only" in 3-D.
+
+**What we found while building it.** TTK's diagonal runs along the *negated* last array
+axis (x): offsets {0,1}^d with x flipped. With it, our local maxima equal TTK's
+piecewise-linear maxima vertex for vertex (2-D and 3-D, random and real data); every other
+orientation differs. Test: `test_freudenthal_maxima_equal_ttk_pl_maxima` (slow).
 

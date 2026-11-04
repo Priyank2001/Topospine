@@ -12,6 +12,12 @@ Each entry: what the paper says (or doesn't), what we do, and why.
    (by `min(f(i), f(j))`) and place the saddle at its lower endpoint, so
    `f(saddle) = min(f(i), f(j))`. One sample can be the saddle of several region pairs
    (a degenerate multi-saddle); each pair gets its own saddle node.
+   The result depends on which edges exist. With the default full stencil (8 / 26) both
+   diagonals of a grid cell are edges, so two regions can touch across a diagonal *above*
+   the true saddle: saddles come out too high and persistence too low (foot slice: 481
+   maxima above 5 % of the range vs 579 in TTK's persistence diagram). On TTK's mesh
+   (`connectivity: ttk`, D-016) the rule matches TTK closely (581 vs 579). The default stays
+   the full stencil so earlier outputs reproduce (D-005).
 3. **Ties.** The paper assumes a Morse function (distinct values). We order samples by
    `(f, index)` ("simulation of simplicity") everywhere, including which maximum Algorithm 1
    cancels. For maxima, "cancel û iff |f(û)−f(s)| < |f(v̂)−f(s)|" is the same as "cancel the

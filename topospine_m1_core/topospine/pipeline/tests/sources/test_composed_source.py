@@ -79,3 +79,25 @@ def test_bad_labels_from_a_region_method_are_rejected(line_ds):
     gap = np.array([0, 0, 0, 2, 2, 2, 2, 3, 3])                      # region 1 missing
     with pytest.raises(ValueError):
         ComposedSource(FakeRegions(gap), FakeSaddles(SaddleSet(np.empty(0), np.empty(0)))).compute(line_ds)
+
+
+# ------------------------------------------------------------ connectivity: ttk (D-016, D-017)
+
+def test_ttk_connectivity_gives_ttks_mesh():
+    from topospine.core import FreudenthalNeighborhood
+    src = ComposedSource(FakeRegions(LINE_LABELS), FakeSaddles(), connectivity="ttk")
+    nb = src.neighborhood(bumps_grid((12, 10)))
+    assert isinstance(nb, FreudenthalNeighborhood) and nb.connectivity == 6
+    assert src.neighborhood(bumps_grid((6, 5, 4), centers=[[0.5, 0.5, 0.5]], heights=[1.0])).connectivity == 14
+
+
+def test_unknown_stencil_name_fails_at_construction():
+    with pytest.raises(ValueError, match=r"unknown connectivity 'tkk'.*\['ttk'\]"):
+        ComposedSource(FakeRegions(LINE_LABELS), FakeSaddles(), connectivity="tkk")
+
+
+def test_ttk_connectivity_is_for_grids_only():
+    pts = sample_points("ackley", 2, 60, -1, 1)
+    with pytest.raises(ValueError, match="applies to grids"):
+        ComposedSource(FakeRegions(LINE_LABELS), FakeSaddles(), connectivity="ttk").neighborhood(pts)
+

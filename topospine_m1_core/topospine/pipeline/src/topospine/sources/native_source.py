@@ -13,13 +13,13 @@ methods separately (D-006, file 7 of M3).
 
 from __future__ import annotations
 
-from topospine.sources.composed_source import DEFAULT_K, ComposedSource
+from topospine.sources.composed_source import DEFAULT_K, ComposedSource, Connectivity
 from topospine.sources.native_blocks import AscentRegions, BoundarySaddles
 
 
 class NativeSource(ComposedSource):
     METHODS = ("ascent", "boundary")      # the pair this preset fixes (read by PRESET_METHODS)
 
-    def __init__(self, connectivity: int | None = None, k: int = DEFAULT_K) -> None:
+    def __init__(self, connectivity: Connectivity = None, k: int = DEFAULT_K) -> None:
         super().__init__(AscentRegions(), BoundarySaddles(), connectivity=connectivity, k=k)
         self.name = "native"

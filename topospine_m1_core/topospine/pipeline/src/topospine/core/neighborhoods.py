@@ -35,39 +35,32 @@ class Neighborhood(Protocol):
     def edge_blocks(self) -> Iterator[EdgeBlock]: ...
 
 
-class GridNeighborhood:
-    """Regular grid, samples flattened in C order (last axis fastest).
+def _grid_shape(shape: Sequence[int]) -> tuple[int, ...]:
+    out = tuple(int(s) for s in shape)
+    if not out or any(s < 1 for s in out):
+        raise ValueError(f"invalid grid shape {shape!r}")
+    return out
 
-    `connectivity` picks a stencil by its size: 1-D: 2; 2-D: 4 or 8;
-    3-D: 6, 18 or 26 (faces / +edges / +corners). Internally this is "all offsets in
-    {-1,0,1}^d with L1 norm <= r", which generalises to any dimension.
+
+class _StencilNeighborhood:
+    """A regular grid whose edges are given by a half stencil of offsets.
+
+    Samples are flattened in C order (last axis fastest). `offsets` holds one offset of
+    each +/- pair, so every undirected edge is produced exactly once.
     """
 
-    def __init__(self, shape: Sequence[int], connectivity: int) -> None:
-        self.shape = tuple(int(s) for s in shape)
-        if not self.shape or any(s < 1 for s in self.shape):
-            raise ValueError(f"invalid grid shape {shape!r}")
-        self.connectivity = int(connectivity)
-        self._offsets = self._half_stencil(len(self.shape), self.connectivity)
+    def __init__(self, shape: Sequence[int], offsets: list[tuple[int, ...]]) -> None:
+        self.shape = _grid_shape(shape)
+        self._offsets = offsets
 
     @property
     def num_samples(self) -> int:
         return int(np.prod(self.shape))
 
-    @staticmethod
-    def _half_stencil(dim: int, connectivity: int) -> list[tuple[int, ...]]:
-        all_offsets = [o for o in itertools.product((-1, 0, 1), repeat=dim) if any(o)]
-        sizes = {r: sum(1 for o in all_offsets if sum(map(abs, o)) <= r) for r in range(1, dim + 1)}
-        radius = next((r for r, size in sizes.items() if size == connectivity), None)
-        if radius is None:
-            raise ValueError(f"connectivity {connectivity} invalid for {dim}-D; choose one of {sorted(sizes.values())}")
-        # Keep one offset of each +/- pair (first non-zero component positive), so
-        # each undirected edge is produced exactly once.
-        return [
-            o
-            for o in all_offsets
-            if sum(map(abs, o)) <= radius and next(c for c in o if c) > 0
-        ]
+    @property
+    def connectivity(self) -> int:
+        """Neighbours of an interior sample."""
+        return 2 * len(self._offsets)
 
     def edge_blocks(self) -> Iterator[EdgeBlock]:
         index = np.arange(self.num_samples, dtype=np.intp).reshape(self.shape)
@@ -86,6 +79,55 @@ class GridNeighborhood:
             src = index[tuple(src_sl)].ravel()
             if src.size:
                 yield src, index[tuple(dst_sl)].ravel()
+
+
+def _half(offsets: list[tuple[int, ...]]) -> list[tuple[int, ...]]:
+    """One offset of each +/- pair: the one whose first non-zero component is positive."""
+    return [o if next(c for c in o if c) > 0 else tuple(-c for c in o) for o in offsets]
+
+
+class GridNeighborhood(_StencilNeighborhood):
+    """Regular grid with a symmetric stencil.
+
+    `connectivity` picks a stencil by its size: 1-D: 2; 2-D: 4 or 8;
+    3-D: 6, 18 or 26 (faces / +edges / +corners). Internally this is "all offsets in
+    {-1,0,1}^d with L1 norm <= r", which generalises to any dimension.
+    """
+
+    def __init__(self, shape: Sequence[int], connectivity: int) -> None:
+        dim = len(_grid_shape(shape))
+        super().__init__(shape, self._half_stencil(dim, int(connectivity)))
+
+    @staticmethod
+    def _half_stencil(dim: int, connectivity: int) -> list[tuple[int, ...]]:
+        all_offsets = [o for o in itertools.product((-1, 0, 1), repeat=dim) if any(o)]
+        sizes = {r: sum(1 for o in all_offsets if sum(map(abs, o)) <= r) for r in range(1, dim + 1)}
+        radius = next((r for r, size in sizes.items() if size == connectivity), None)
+        if radius is None:
+            raise ValueError(f"connectivity {connectivity} invalid for {dim}-D; choose one of {sorted(sizes.values())}")
+        return [o for o in all_offsets if sum(map(abs, o)) <= radius and next(c for c in o if c) > 0]
+
+
+class FreudenthalNeighborhood(_StencilNeighborhood):
+    """The edges of TTK's grid triangulation (config name `connectivity: ttk`, D-016).
+
+    TTK splits each grid square (cube) into triangles (tetrahedra) along ONE diagonal
+    direction (the Freudenthal / Kuhn subdivision), so a sample has 6 neighbours in 2-D and
+    14 in 3-D, not 8 / 26. Offsets: every non-zero vector in {0,1}^d with the LAST array
+    axis (x, the fastest) negated; 2-D: (0,1), (1,0), (1,-1).
+
+    Why it matters: with both diagonals, two regions can touch across a diagonal above the
+    true saddle, so saddles come out too high and persistence too low (M3_NOTES.md §3).
+    The orientation was found by experiment: on this stencil our local maxima equal TTK's
+    piecewise-linear maxima vertex for vertex (temp/evidence/ttk_mesh_orientation.py);
+    the other orientations don't.
+    """
+
+    def __init__(self, shape: Sequence[int]) -> None:
+        dim = len(_grid_shape(shape))
+        flip = (1,) * (dim - 1) + (-1,)
+        offsets = [tuple(f * c for f, c in zip(flip, o)) for o in itertools.product((0, 1), repeat=dim) if any(o)]
+        super().__init__(shape, _half(offsets))
 
 
 class KnnNeighborhood:

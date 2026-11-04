@@ -22,7 +22,7 @@ from collections.abc import Callable, Mapping
 from typing import Any
 
 from topospine.sources.base import ExtremumGraphSource, RegionMethod, SaddleMethod
-from topospine.sources.composed_source import DEFAULT_K, ComposedSource
+from topospine.sources.composed_source import DEFAULT_K, ComposedSource, Connectivity
 from topospine.sources.native_blocks import AscentRegions, BoundarySaddles
 from topospine.sources.native_source import NativeSource
 from topospine.sources.ttk_backend import TtkBackend
@@ -81,7 +81,7 @@ def _build(registry: Mapping[str, Callable[..., Any]], kind: str, name: str,
 
 
 def compose_source(regions: str, saddles: str, *, regions_params: Mapping[str, Any] | None = None,
-                   saddles_params: Mapping[str, Any] | None = None, connectivity: int | None = None,
+                   saddles_params: Mapping[str, Any] | None = None, connectivity: Connectivity = None,
                    k: int = DEFAULT_K) -> ComposedSource:
     """Join one region method and one saddle method by name into a source."""
     shared = SharedResources()

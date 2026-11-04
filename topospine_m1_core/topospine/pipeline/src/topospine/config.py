@@ -12,6 +12,7 @@ dataset:
   params: {dims_xyz: [128, 128]}
 extremum: maxima           # maxima | minima
 source: {type: native, connectivity: 8}   # a preset: native | ttk
+# connectivity: a stencil size (2-D 4|8, 3-D 6|18|26) or `ttk` = TTK's mesh (D-016)
 # or pick the two blocks of extraction yourself (docs/DECISIONS.md D-004):
 # source: {regions: ttk, saddles: {type: ttk}, connectivity: 26}
 histogram_bins: 64

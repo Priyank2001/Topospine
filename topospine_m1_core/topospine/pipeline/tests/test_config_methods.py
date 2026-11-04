@@ -89,6 +89,24 @@ def test_preset_params_that_belong_to_one_block_are_refused(tmp_path):
 
 # ------------------------------------------------------------------ run + CLI
 
+def test_ttk_mesh_from_yaml_through_a_run(tmp_path):
+    """`connectivity: ttk` reaches the stencil, works for the native preset, and is recorded."""
+    cfg = parse_config(yaml.safe_load(f"""
+        name: t
+        dataset: {json.dumps(DATASET)}
+        source: {{type: native, connectivity: ttk}}
+        output: out/t"""), tmp_path)
+    assert cfg.source.params == {"connectivity": "ttk"}
+    run_pipeline(cfg, tmp_path / "o")
+    meta = json.loads((tmp_path / "o" / "graph.json").read_text())["dataset"]
+    assert meta["extraction"]["connectivity"] == "ttk"
+
+
+def test_ttk_mesh_carries_over_a_method_flag(tmp_path):
+    cfg = with_methods(_cfg(tmp_path, {"type": "native", "connectivity": "ttk"}), PRESET_METHODS, regions="ttk")
+    assert cfg.source.params == {"connectivity": "ttk"}
+
+
 def test_run_records_how_the_graph_was_made(tmp_path):
     cfg = _cfg(tmp_path, {"regions": "ascent", "saddles": "boundary", "connectivity": 8})
     res = run_pipeline(cfg, tmp_path / "o")

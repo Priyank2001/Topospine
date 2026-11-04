@@ -117,11 +117,37 @@ What the table says:
    remaining excess of `ttk+ttk` (586 vs 579) comes from D-009/D-011.
 4. **Review item.** On `aneurism`, D-011 added 61 of our saddles against 159 kept from TTK:
    the "revisit if" condition of D-011 is met.
-5. **Simplification (D-014) does not close the gap.** After TTK persistence simplification at
+5. **Simplification (D-014) does not close the gap** (measured with the full stencil). After TTK persistence simplification at
    5 % (pair type 2 = maximum–saddle, perturbation on), foot has 500 / 488 / 583 maxima above
    5 % for native / `ttk+boundary` / `ttk+ttk`: the gap is the mesh, not noise. Evidence:
    `temp/evidence/simplify_precheck.py`. Perturbation is required: without it the flattened
    field re-creates spurious maxima (noisy 3-D at 2 %: 83 vs 26).
+
+6. **On TTK's mesh the gap closes** (D-016, `connectivity: ttk`). Evidence:
+   `temp/evidence/ttk_mesh_compare.py`. "p ≥ 5 %" counts the global maximum on both sides
+   (TTK's diagram lists it as a pair).
+
+   | dataset | TTK diagram p ≥ 5 % | `ascent+boundary` full → ttk | `ttk+boundary` full → ttk | `ttk+ttk` full → ttk | `ttk+boundary` values shared with TTK, full → ttk |
+   |---|---|---|---|---|---|
+   | gauss3d | 4 | 4 → 4 | 4 → 4 | 4 → 4 | 1 → 3 of 3 |
+   | noisy `bumps3d` | 2 | 2 → 3 | 2 → 2 | 2 → 2 | 24 → 118 of 135 |
+   | foot | 579 | 494 → 594 | 481 → **581** | 587 → 587 | 1695 → **2083** of 2092 |
+   | bonsai | 296 | 281 → 299 | 279 → **297** | 298 → 298 | 1019 → **1211** of 1218 |
+   | engine | 11 | 11 → 11 | 11 → **11** | 11 → 11 | 3168 → **3682** of 3685 |
+   | aneurism | 119 | 112 → 119 | 112 → **119** | 117 → 119 | 197 → **216** of 217 |
+
+   - **`ttk+boundary` on TTK's mesh is the closest match to TTK's own persistence**, closer
+     than `ttk+ttk` (foot: 2083 vs 2067 shared values). Same regions + same mesh is enough;
+     our "highest border edge" then finds TTK's saddle heights.
+   - **Native on TTK's mesh** comes close on the significant peaks in 2-D (594 / 299 / 11 /
+     119), but finds more small maxima than TTK's diagram (foot 2117, noisy 3-D 297 vs 136).
+     Our ascent finds the mesh's piecewise-linear maxima (they equal TTK's
+     `ttkScalarFieldCriticalPoints` exactly); TTK's diagram is built from its discrete
+     gradient, which merges some of them. The remaining native-vs-TTK difference is
+     therefore the method (steepest ascent vs discrete gradient), not the mesh.
+   - **`ttk+ttk` barely depends on the stencil**: the stencil only enters through the
+     reconnection saddles of D-011 (aneurism 117 → 119).
+   - Recommended for comparisons with TTK: `connectivity: ttk`. Defaults stay 8 / 26 (D-005).
 
 ---
 

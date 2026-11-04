@@ -26,7 +26,7 @@ from topospine.core.gradient_flow import (
     steepest_ascent,
 )
 from topospine.core.graph import GradientFlowGraph, NodeKind
-from topospine.core.neighborhoods import GridNeighborhood, KnnNeighborhood, Neighborhood
+from topospine.core.neighborhoods import FreudenthalNeighborhood, GridNeighborhood, KnnNeighborhood, Neighborhood
 from topospine.core.persistence import Persistence, compute_persistence
 from topospine.core.reconnect import connect_pieces, count_pieces
 from topospine.core.region_stats import RegionHistograms, region_histograms
@@ -34,6 +34,7 @@ from topospine.core.region_stats import RegionHistograms, region_histograms
 __all__ = [
     "FlowDecomposition",
     "GradientFlowGraph",
+    "FreudenthalNeighborhood",
     "GridNeighborhood",
     "KnnNeighborhood",
     "Neighborhood",
