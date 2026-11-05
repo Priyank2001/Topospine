@@ -45,6 +45,8 @@ the old one's status line only.
 | [D-015](#d-015) | 2026-11-04 | Simplification: every method sees the simplified field, it is what gets exported, threshold is a fraction of the range | Active, scheduled after D-016 |
 | [D-016](#d-016) | 2026-11-04 | Add a stencil matching TTK's triangulation first, then simplification | Active |
 | [D-017](#d-017) | 2026-11-04 | The TTK-mesh stencil is selected with `connectivity: ttk` | Active |
+| [D-018](#d-018) | 2026-11-04 | The three `gauss3d*` cross-check configs use `connectivity: ttk` | Active |
+| [D-019](#d-019) | 2026-11-05 | `simplify` on a non-`ttk` stencil warns, but still runs | Active |
 
 ---
 
@@ -541,6 +543,14 @@ field is exported, and in what unit the threshold is given.
 - `graph.json` records `dataset.simplify` so a result can be traced to its threshold.
 - A simplified output is not the raw data: DEVIATIONS.md gets an entry.
 
+**Evidence after building it (2026-11-05, `temp/evidence/simplify_foot.py`, klacansky_foot).**
+TTK cut 2117 -> 1679 maxima at 1 % and -> 594 at 5 %; the top five persistences stay the same
+in every method, so real features survive. The guarantee "nothing left with 0 < p < t" holds
+only on TTK's mesh: with `connectivity: ttk`, ascent+boundary leaves 0, and the TTK region
+method leaves 1-2 maxima on the domain border (the D-009 border behaviour). With the shipped
+`connectivity: 8`, the boundary saddles leave 65-89, because TTK removed noise on a different
+mesh than the one we extract on. So `simplify` should be used with `connectivity: ttk`.
+
 ---
 
 <a id="d-016"></a>
@@ -600,4 +610,62 @@ textbook name of this subdivision.
 axis (x): offsets {0,1}^d with x flipped. With it, our local maxima equal TTK's
 piecewise-linear maxima vertex for vertex (2-D and 3-D, random and real data); every other
 orientation differs. Test: `test_freudenthal_maxima_equal_ttk_pl_maxima` (slow).
+
+---
+
+<a id="d-018"></a>
+### D-018 · The `gauss3d*` cross-check configs use `connectivity: ttk`
+
+**Date** 2026-11-04 · **Status** Active · **Decided by** Priyank (picked Claude's
+recommended option (b) of three)
+
+**The question.** `gauss3d.yaml` (native), `gauss3d_ttk.yaml` (`ttk` preset) and
+`gauss3d_ttk_ttk.yaml` (`ttk+ttk`) exist to compare methods on one volume. They all used the
+26-neighbour stencil, which differs from TTK's mesh (D-016), so the comparison mixed method
+and mesh. Switching changes their outputs, which D-005 promised to keep stable.
+
+**What we chose.** (b) Switch **all three** to `connectivity: ttk` together. Switching only the
+TTK configs would compare native on 26 with TTK on its mesh: the same mismatch again.
+
+**What changes** (measured; maxima and saddle counts unchanged):
+
+| config | persistence of the 3 finite maxima, % of range |
+|---|---|
+| `gauss3d`, `gauss3d_ttk` | 57.56 / 55.75 / 32.75 → 57.65 / 55.75 / 32.90 |
+| `gauss3d_ttk_ttk` | 57.65 / 55.75 / 32.90 (unchanged) |
+
+**Why.** These configs exist only as a cross-check, and the shipped example should show the
+right setting for comparisons with TTK. The change is about 0.1 % of the range.
+
+**Options we didn't take.** (a) Leave all three on 26: reproducible, but a silent
+mesh mismatch. (c) Keep them and add three `connectivity: ttk` copies: six configs for one
+volume.
+
+**What it means later.** Outputs of these three configs made before this change used
+`connectivity: 26`; `graph.json` records which one (`dataset.extraction.connectivity`).
+After the switch all three methods give the same top persistence on `gauss3d`
+(0.5748 / 0.5559 / 0.3281 of the range, as fractions).
+This is a scoped exception to D-005: all other configs keep their stencils.
+
+---
+
+<a id="d-019"></a>
+### D-019 · `simplify` on a non-`ttk` stencil warns, but still runs
+
+**The question.** TTK simplifies on its own mesh. On another stencil (8, 26, ...) some
+features below the threshold survive (klacansky_foot, 5 %: 87 left with ascent+boundary,
+0 with `connectivity: ttk`; see D-015 evidence). What should a run do then?
+
+**What we chose.** Run, and print a warning that names `connectivity: ttk` (`run.py`,
+`SIMPLIFY_STENCIL_WARNING`).
+
+**Options we didn't take.**
+- Refuse to run: blocks comparisons on purpose ("how much does the stencil matter after
+  simplifying?") and breaks configs that only add `--simplify`.
+- Switch to the `ttk` stencil silently: the run would no longer match its config, the
+  folder name would not show it, and stencil-only differences would look like effects of
+  simplification.
+
+**Revisit if** users routinely ignore the warning, or a second simplifier with another mesh
+is added (then the check belongs on the simplifier, not in `run.py`).
 

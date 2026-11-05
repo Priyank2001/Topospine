@@ -15,6 +15,8 @@ source: {type: native, connectivity: 8}   # a preset: native | ttk
 # connectivity: a stencil size (2-D 4|8, 3-D 6|18|26) or `ttk` = TTK's mesh (D-016)
 # or pick the two blocks of extraction yourself (docs/DECISIONS.md D-004):
 # source: {regions: ttk, saddles: {type: ttk}, connectivity: 26}
+simplify: 0.02            # optional (D-014/D-015): drop features below 2 % of the value range
+# simplify: {threshold: 5.0, absolute: true}   # or in raw field units; use with connectivity: ttk
 histogram_bins: 64
 field_encoding: uint8
 output: ../out/gauss2d
@@ -69,6 +71,18 @@ class SourceConfig:
 
 
 @dataclass(frozen=True)
+class SimplifyConfig:
+    """TTK persistence simplification before extraction (D-014, D-015).
+
+    `threshold` is a fraction of the value range unless `absolute`; its range is checked
+    by TtkSimplifier, the one place that knows what the number means.
+    """
+
+    threshold: float
+    absolute: bool = False
+
+
+@dataclass(frozen=True)
 class RunConfig:
     name: str
     dataset: DatasetConfig
@@ -77,6 +91,7 @@ class RunConfig:
     extremum: str = "maxima"
     histogram_bins: int = 64
     field_encoding: str = "uint8"
+    simplify: SimplifyConfig | None = None
 
 
 def parse_config(raw: dict[str, Any], base_dir: Path) -> RunConfig:
@@ -119,7 +134,22 @@ def parse_config(raw: dict[str, Any], base_dir: Path) -> RunConfig:
         extremum=extremum,
         histogram_bins=bins,
         field_encoding=encoding,
+        simplify=parse_simplify(raw.get("simplify")),
     )
+
+
+def parse_simplify(raw: Any) -> SimplifyConfig | None:
+    """`simplify: 0.02` or `simplify: {threshold: 5, absolute: true}`; absent or null = off."""
+    if raw is None:
+        return None
+    if isinstance(raw, bool) or not isinstance(raw, (int, float, Mapping)):
+        raise ValueError(f"simplify must be a number or {{threshold, absolute}}, got {raw!r}")
+    if not isinstance(raw, Mapping):
+        return SimplifyConfig(float(raw))
+    extra = sorted(set(raw) - {"threshold", "absolute"})
+    if extra or "threshold" not in raw:
+        raise ValueError(f"simplify needs `threshold` (and optionally `absolute`); unknown keys {extra}")
+    return SimplifyConfig(float(raw["threshold"]), bool(raw.get("absolute", False)))
 
 
 def _method(raw: Any, block: str) -> MethodConfig:
@@ -183,6 +213,20 @@ def with_methods(cfg: RunConfig, preset_methods: Mapping[str, tuple[str, str]],
     shared = {k: v for k, v in src.params.items() if k in SHARED_SOURCE_KEYS}
     output = cfg.output.with_name(f"{cfg.output.name}_{new_r.type}-{new_s.type}")
     return replace(cfg, source=SourceConfig(None, shared, new_r, new_s), output=output)
+
+
+def with_simplify(cfg: RunConfig, threshold: float | None) -> RunConfig:
+    """Override the config's simplification (the --simplify flag, a fraction of the range).
+
+    If it changes anything, the output folder gets a `_s<threshold>` suffix (e.g. `_s0.02`)
+    so simplified and unsimplified runs never overwrite each other.
+    """
+    if threshold is None:
+        return cfg
+    new = SimplifyConfig(float(threshold))
+    if new == cfg.simplify:
+        return cfg
+    return replace(cfg, simplify=new, output=cfg.output.with_name(f"{cfg.output.name}_s{new.threshold:g}"))
 
 
 def load_config(path: str | Path) -> RunConfig:

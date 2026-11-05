@@ -1,8 +1,10 @@
 """Command line: python -m topospine.cli configs/gauss2d.yaml [--out DIR] [--preview]
-                                     [--regions ascent|ttk] [--saddles boundary|ttk]
+                                     [--regions ascent|ttk] [--saddles boundary|ttk] [--simplify T]
 
 --regions / --saddles override the config's methods (DECISIONS.md D-006); the output folder
 then gets a `_<regions>-<saddles>` suffix unless --out names it explicitly.
+--simplify T removes features below T x the value range with TTK first (D-014, D-015);
+the folder gets a `_s<T>` suffix, again unless --out.
 """
 
 from __future__ import annotations
@@ -11,7 +13,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from topospine.config import load_config, with_methods
+from topospine.config import load_config, with_methods, with_simplify
 from topospine.run import run_pipeline
 from topospine.sources import PRESET_METHODS, REGION_METHODS, SADDLE_METHODS
 
@@ -29,9 +31,12 @@ def main(argv: list[str] | None = None) -> int:
                     help="region method, overriding the config")
     ap.add_argument("--saddles", choices=sorted(SADDLE_METHODS), default=None,
                     help="saddle method, overriding the config")
+    ap.add_argument("--simplify", type=float, default=None, metavar="T",
+                    help="simplify first: drop features below T x value range (needs TTK)")
     args = ap.parse_args(argv)
 
     cfg = with_methods(load_config(args.config), PRESET_METHODS, args.regions, args.saddles)
+    cfg = with_simplify(cfg, args.simplify)
     result = run_pipeline(cfg, args.out)
     print(result.summary())
 

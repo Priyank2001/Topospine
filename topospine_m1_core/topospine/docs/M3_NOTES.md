@@ -148,8 +148,27 @@ What the table says:
    - **`ttk+ttk` barely depends on the stencil**: the stencil only enters through the
      reconnection saddles of D-011 (aneurism 117 → 119).
    - Recommended for comparisons with TTK: `connectivity: ttk`. Defaults stay 8 / 26 (D-005).
+     The `gauss3d*` cross-check configs use it since D-018 (earlier runs of them used 26).
 
 ---
+
+## Simplification (D-014, D-015)
+
+`simplify: 0.05` in a config, or `--simplify 0.05`, removes every maximum whose persistence is
+below 5 % of the value range, using TTK, before any method runs. The output folder gets `_s0.05`.
+
+klacansky_foot (256 x 256), maxima left on TTK's mesh: 2117 -> 1679 (1 %) -> 594 (5 %). The top
+five persistences (213, 104, 96, 93, 90) are unchanged. Features still left with 0 < p < t:
+
+| stencil | t | ascent+boundary | ttk+boundary | ttk+ttk |
+|---|---|---|---|---|
+| 8 | 1 % | 65 | 67 | 1 |
+| 8 | 5 % | 87 | 89 | 1 |
+| ttk | 1 % | 0 | 1 | 1 |
+| ttk | 5 % | 0 | 2 | 1 |
+
+The ones left on the `ttk` stencil are border maxima (row 0) from TTK's regions. Use
+`simplify` with `connectivity: ttk`.
 
 ## Not done in M3
 

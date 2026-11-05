@@ -90,3 +90,10 @@ Each entry: what the paper says (or doesn't), what we do, and why.
     dropped (DECISIONS.md D-009). If that leaves the peaks in separate pieces, our boundary
     saddles (#2) are added, highest first, only where they join two pieces (D-011), so the
     graph has one global maximum. Saddles joining 3+ peaks stop the run (D-010).
+18. **Simplified field (optional, `simplify:` / `--simplify`).** Not in the paper, which reads
+    noise off the persistence plot instead. Before extraction, TTK's persistence simplification
+    flattens every maximum below the threshold (fraction of the value range) into its saddle;
+    all methods then see, and the export contains, this simplified field, not the raw data
+    (DECISIONS.md D-014, D-015). `graph.json` records it under `dataset.simplify`. The cut is
+    exact only with `connectivity: ttk`; on another stencil some features below the threshold
+    remain, and maxima on the domain border can remain with the TTK region method.
