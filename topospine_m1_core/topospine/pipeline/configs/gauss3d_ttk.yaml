@@ -11,5 +11,6 @@ dataset:
     heights: [1.0, 0.8, 0.7, 0.5]
     width: 0.1
 extremum: maxima
-source: {type: ttk, connectivity: 26}
+# connectivity: ttk = TTK's grid mesh, so native and TTK runs differ only in method (D-016, D-018).
+source: {type: ttk, connectivity: ttk}
 output: ../out/gauss3d_ttk
