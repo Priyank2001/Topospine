@@ -1,0 +1,9 @@
+# 2-D slice of Klacansky's `mri_ventricles` volume (made by data/download.py)
+name: klacansky_mri_ventricles
+dataset:
+  type: npy
+  path: ../../data/slices/mri_ventricles_z62.npy
+  spacing_xyz: [0.9, 0.9]
+extremum: maxima
+source: {type: native, connectivity: 8}
+output: ../out/klacansky_mri_ventricles

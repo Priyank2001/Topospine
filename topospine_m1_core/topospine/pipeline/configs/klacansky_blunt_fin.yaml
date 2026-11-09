@@ -1,0 +1,9 @@
+# 2-D slice of Klacansky's `blunt_fin` volume (made by data/download.py)
+name: klacansky_blunt_fin
+dataset:
+  type: npy
+  path: ../../data/slices/blunt_fin_z32.npy
+  spacing_xyz: [1, 0.75]
+extremum: maxima
+source: {type: native, connectivity: 8}
+output: ../out/klacansky_blunt_fin

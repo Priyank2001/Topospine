@@ -49,7 +49,7 @@ export interface LinkOptions {
   glyphScale: number;
 }
 
-export const DEFAULT_LINKS: LinkOptions = { knots: 8, mode: "sqrt", glyphScale: 0.6 };
+export const DEFAULT_LINKS: LinkOptions = { knots: 16, mode: "linear", glyphScale: 0.6 };
 
 /** Radius in "count units" before the global scale is applied. */
 export function shapeRadius(d: SpineData, regions: MergedRegions, u: number, c: number, gp: number, mode: RadiusMode): number {

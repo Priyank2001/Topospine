@@ -1,0 +1,9 @@
+# 2-D slice of Klacansky's `tooth` volume (made by data/download.py)
+name: klacansky_tooth
+dataset:
+  type: npy
+  path: ../../data/slices/tooth_y40.npy
+  spacing_xyz: [1, 1]
+extremum: maxima
+source: {type: native, connectivity: 8}
+output: ../out/klacansky_tooth

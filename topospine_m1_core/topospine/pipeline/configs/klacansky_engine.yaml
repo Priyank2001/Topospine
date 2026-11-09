@@ -1,0 +1,9 @@
+# 2-D slice of Klacansky's `engine` volume (made by data/download.py)
+name: klacansky_engine
+dataset:
+  type: npy
+  path: ../../data/slices/engine_z64.npy
+  spacing_xyz: [1, 1]
+extremum: maxima
+source: {type: native, connectivity: 8}
+output: ../out/klacansky_engine

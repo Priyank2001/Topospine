@@ -8,7 +8,7 @@
   <body>
     <main class="app">
       <section class="stage" aria-label="Topological spine">
-        <canvas id="spine-canvas"></canvas>
+        <canvas id="spine-canvas" aria-label="Topological spine: drag to pan, wheel to zoom, click a node to select it, Esc to clear"></canvas>
         <p class="status" id="status" role="status"></p>
       </section>
       <aside class="sidebar">
@@ -23,6 +23,7 @@
             <span class="key key-hi">arcs kept as variation threshold rises</span>
           </figcaption>
         </figure>
+        <section class="selection" id="selection" aria-live="polite"></section>
         <div id="panel"></div>
         <dl class="stats" id="stats"></dl>
       </aside>

@@ -4,30 +4,34 @@
  * Plateaus mark stable structure. Drag the blue line to set pLo, the red one to set pHi;
  * dragging the red line to the right edge removes the variation limit (pHi = infinity).
  * Arrow keys nudge the focused threshold for keyboard users.
+ *
+ * Passive (MVP): curves, thresholds and labels come in a PlotViewModel; drags are reported
+ * as raw intents and the model applies the threshold rules. The only state kept here is
+ * the interaction itself (which line is dragged or focused).
  */
 
-import { arcCurve, extremaCurve, maxFinitePersistence } from "../core/thresholds";
-import { SpineData } from "../core/types";
+import { IPlotView, PlotViewEvents, PlotViewModel } from "./contract";
 
 type Which = "lo" | "hi";
 
 const PAD = { left: 8, right: 8, top: 10, bottom: 22 };
 
-export class PersistencePlot {
-  private t = new Float64Array(0);
-  private blue = new Int32Array(0);
-  private red = new Int32Array(0);
-  private xMax = 1;
-  private pLo = 0;
-  private pHi = Infinity;
+const EMPTY: PlotViewModel = {
+  t: new Float64Array(0), extrema: new Int32Array(0), arcs: new Int32Array(0),
+  xMax: 1, pLo: 0, pHi: Infinity, loLabel: "", hiLabel: "", marks: [],
+};
+
+/** Height of the selection ticks above the axis, in CSS pixels. */
+const MARK_PX = 12;
+
+export class PersistencePlotView implements IPlotView {
+  private vm: PlotViewModel = EMPTY;
+  private events?: PlotViewEvents;
   private dragging: Which | null = null;
   private focus: Which = "lo";
   private readonly resizeObserver: ResizeObserver;
 
-  constructor(
-    private readonly canvas: HTMLCanvasElement,
-    private readonly onChange: (pLo: number, pHi: number) => void,
-  ) {
+  constructor(private readonly canvas: HTMLCanvasElement) {
     canvas.tabIndex = 0;
     canvas.addEventListener("pointerdown", this.onDown);
     canvas.addEventListener("pointermove", this.onMove);
@@ -37,17 +41,12 @@ export class PersistencePlot {
     this.resizeObserver.observe(canvas);
   }
 
-  setData(d: SpineData): void {
-    this.xMax = (maxFinitePersistence(d) || 1) * 1.05;
-    this.t = Float64Array.from({ length: 400 }, (_, i) => (i / 399) * this.xMax);
-    this.blue = extremaCurve(d, this.t);
-    this.red = arcCurve(d, this.t);
-    this.draw();
+  bind(events: PlotViewEvents): void {
+    this.events = events;
   }
 
-  setThresholds(pLo: number, pHi: number): void {
-    this.pLo = pLo;
-    this.pHi = pHi;
+  render(vm: PlotViewModel): void {
+    this.vm = vm;
     this.draw();
   }
 
@@ -56,26 +55,24 @@ export class PersistencePlot {
   }
 
   private xOf(p: number): number {
-    return PAD.left + (Math.min(p, this.xMax) / this.xMax) * this.plotWidth();
+    return PAD.left + (Math.min(p, this.vm.xMax) / this.vm.xMax) * this.plotWidth();
   }
 
   private pOf(clientX: number): number {
     const rect = this.canvas.getBoundingClientRect();
     const frac = (clientX - rect.left - PAD.left) / this.plotWidth();
-    return Math.max(0, Math.min(1, frac)) * this.xMax;
+    return Math.max(0, Math.min(1, frac)) * this.vm.xMax;
   }
 
   private emit(which: Which, p: number, atRightEdge: boolean): void {
-    if (which === "lo") this.pLo = Math.min(p, Number.isFinite(this.pHi) ? this.pHi : p);
-    else this.pHi = atRightEdge ? Infinity : Math.max(p, this.pLo);
-    this.draw();
-    this.onChange(this.pLo, this.pHi);
+    if (which === "lo") this.events?.noiseDragged(p);
+    else this.events?.variationDragged(atRightEdge ? Infinity : p);
   }
 
   private readonly onDown = (e: PointerEvent) => {
     const x = e.clientX - this.canvas.getBoundingClientRect().left;
-    const dLo = Math.abs(x - this.xOf(this.pLo));
-    const dHi = Math.abs(x - this.xOf(this.pHi));
+    const dLo = Math.abs(x - this.xOf(this.vm.pLo));
+    const dHi = Math.abs(x - this.xOf(this.vm.pHi));
     this.dragging = dHi < dLo ? "hi" : "lo";
     this.focus = this.dragging;
     this.canvas.setPointerCapture(e.pointerId);
@@ -98,15 +95,16 @@ export class PersistencePlot {
     if (e.key === "l") this.focus = "lo";
     else if (e.key === "h") this.focus = "hi";
     else if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-      const step = (e.shiftKey ? 0.05 : 0.01) * this.xMax * (e.key === "ArrowLeft" ? -1 : 1);
-      const cur = this.focus === "lo" ? this.pLo : Number.isFinite(this.pHi) ? this.pHi : this.xMax;
+      const { xMax, pLo, pHi } = this.vm;
+      const step = (e.shiftKey ? 0.05 : 0.01) * xMax * (e.key === "ArrowLeft" ? -1 : 1);
+      const cur = this.focus === "lo" ? pLo : Number.isFinite(pHi) ? pHi : xMax;
       const next = Math.max(0, cur + step);
-      this.emit(this.focus, next, this.focus === "hi" && next >= this.xMax);
+      this.emit(this.focus, next, this.focus === "hi" && next >= xMax);
     } else return;
     e.preventDefault();
   };
 
-  draw(): void {
+  private draw(): void {
     const c = this.canvas;
     const dpr = window.devicePixelRatio || 1;
     const w = c.clientWidth, h = c.clientHeight;
@@ -119,7 +117,8 @@ export class PersistencePlot {
     const css = getComputedStyle(document.documentElement);
     const blue = css.getPropertyValue("--persistence").trim() || "#2f6db5";
     const red = css.getPropertyValue("--variation").trim() || "#c23b3b";
-    const ink = css.getPropertyValue("--ink-soft").trim() || "#5b6774";
+    const softInk = css.getPropertyValue("--ink-soft").trim() || "#5b6774";
+    const ink = css.getPropertyValue("--ink").trim() || "#1f2a36";
     const plotH = h - PAD.top - PAD.bottom;
 
     const curve = (ys: Int32Array, color: string) => {
@@ -127,7 +126,7 @@ export class PersistencePlot {
       g.beginPath();
       g.moveTo(PAD.left, PAD.top + plotH);
       for (let i = 0; i < ys.length; i++) {
-        const x = this.xOf(this.t[i]);
+        const x = this.xOf(this.vm.t[i]);
         const y = PAD.top + plotH * (1 - ys[i] / yMax);
         if (i === 0) g.lineTo(x, y);
         else {
@@ -135,7 +134,7 @@ export class PersistencePlot {
           g.lineTo(x, y);
         }
       }
-      g.lineTo(this.xOf(this.xMax), PAD.top + plotH);
+      g.lineTo(this.xOf(this.vm.xMax), PAD.top + plotH);
       g.closePath();
       g.globalAlpha = 0.16;
       g.fillStyle = color;
@@ -145,16 +144,27 @@ export class PersistencePlot {
       g.lineWidth = 1.5;
       g.stroke();
     };
-    curve(this.blue, blue);
-    curve(this.red, red);
+    curve(this.vm.extrema, blue);
+    curve(this.vm.arcs, red);
 
     // axis
-    g.strokeStyle = ink;
+    g.strokeStyle = softInk;
     g.lineWidth = 1;
     g.beginPath();
     g.moveTo(PAD.left, PAD.top + plotH + 0.5);
     g.lineTo(w - PAD.right, PAD.top + plotH + 0.5);
     g.stroke();
+
+    // ticks at P of selected (ink) and hovered (soft) nodes, just above the axis
+    for (const m of this.vm.marks) {
+      const x = Math.round(this.xOf(m.p)) + 0.5;
+      g.strokeStyle = m.kind === "selected" ? ink : softInk;
+      g.lineWidth = m.kind === "selected" ? 2 : 1.5;
+      g.beginPath();
+      g.moveTo(x, PAD.top + plotH);
+      g.lineTo(x, PAD.top + plotH - MARK_PX);
+      g.stroke();
+    }
 
     const handle = (p: number, color: string, label: string, focused: boolean) => {
       const x = Math.round(this.xOf(p)) + 0.5;
@@ -169,8 +179,8 @@ export class PersistencePlot {
       g.textAlign = x > w / 2 ? "right" : "left";
       g.fillText(label, x + (x > w / 2 ? -5 : 5), PAD.top + plotH + 16);
     };
-    handle(this.pLo, blue, `noise ${fmt(this.pLo)}`, this.focus === "lo");
-    handle(this.pHi, red, `variation ${Number.isFinite(this.pHi) ? fmt(this.pHi) : "∞"}`, this.focus === "hi");
+    handle(this.vm.pLo, blue, this.vm.loLabel, this.focus === "lo");
+    handle(this.vm.pHi, red, this.vm.hiLabel, this.focus === "hi");
   }
 
   dispose(): void {
@@ -182,7 +192,3 @@ export class PersistencePlot {
   }
 }
 
-export function fmt(p: number): string {
-  if (p === 0) return "0";
-  return Math.abs(p) >= 100 || Math.abs(p) < 0.01 ? p.toExponential(1) : p.toPrecision(2);
-}

@@ -1,0 +1,9 @@
+# 2-D slice of Klacansky's `hydrogen_atom` volume (made by data/download.py)
+name: klacansky_hydrogen_atom
+dataset:
+  type: npy
+  path: ../../data/slices/hydrogen_atom_z64.npy
+  spacing_xyz: [1, 1]
+extremum: maxima
+source: {type: native, connectivity: 8}
+output: ../out/klacansky_hydrogen_atom

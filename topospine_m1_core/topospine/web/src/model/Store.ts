@@ -1,6 +1,6 @@
 /**
- * Tiny observable store: the single place user-controlled state lives.
- * UI and pickers call `set`; views subscribe. No framework needed for one canvas and a panel.
+ * Tiny observable snapshot. Each model keeps one privately and exposes named methods;
+ * presenters subscribe through the model. No framework needed for a few canvases and a panel.
  */
 
 export type Listener<S> = (state: S, previous: S) => void;

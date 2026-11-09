@@ -1,0 +1,9 @@
+# 2-D slice of Klacansky's `lobster` volume (made by data/download.py)
+name: klacansky_lobster
+dataset:
+  type: npy
+  path: ../../data/slices/lobster_z28.npy
+  spacing_xyz: [1, 1]
+extremum: maxima
+source: {type: native, connectivity: 8}
+output: ../out/klacansky_lobster

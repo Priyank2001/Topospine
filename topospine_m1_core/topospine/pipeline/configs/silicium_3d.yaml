@@ -1,0 +1,12 @@
+# 3-D volume of Klacansky's `silicium` dataset (Open SciVis Datasets)
+name: silicium_3d
+dataset:
+  type: raw
+  path: ../../data/raw/silicium/silicium_98x34x34_uint8.raw
+  dims_xyz: [98, 34, 34]
+  dtype: uint8
+  byte_order: little
+  spacing_xyz: [1, 1, 1]
+extremum: maxima
+source: {type: native, connectivity: 26}
+output: ../out/silicium_3d

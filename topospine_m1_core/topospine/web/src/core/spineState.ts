@@ -1,4 +1,4 @@
-/** User-controlled parameters of the spine view, with defaults. */
+/** User-controlled parameters of the spine view, with defaults. Pure data; SpineParamsModel owns the live copy. */
 
 import { RadiusMode } from "./spine/links";
 import { Saturation } from "./types";
@@ -22,7 +22,7 @@ export const DEFAULT_PARAMS: SpineParams = {
   pHi: Infinity,
   saturation: "paper",
   dedupe: true,
-  radiusMode: "sqrt",
+  radiusMode: "linear",
   glyphScale: 0.5,
   minLevelGap: 0.03,
   maxLevels: 24,
@@ -30,3 +30,6 @@ export const DEFAULT_PARAMS: SpineParams = {
   showSkeleton: true,
   showNodes: true,
 };
+
+/** Everything except the two thresholds: options that never need cross-field checks. */
+export type SpineOptions = Omit<SpineParams, "pLo" | "pHi">;

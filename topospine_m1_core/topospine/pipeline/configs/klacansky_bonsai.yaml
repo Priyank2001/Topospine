@@ -1,0 +1,9 @@
+# 2-D slice of Klacansky's `bonsai` volume (made by data/download.py)
+name: klacansky_bonsai
+dataset:
+  type: npy
+  path: ../../data/slices/bonsai_z128.npy
+  spacing_xyz: [1, 1]
+extremum: maxima
+source: {type: native, connectivity: 8}
+output: ../out/klacansky_bonsai

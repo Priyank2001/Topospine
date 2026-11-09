@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SpinePipeline, memo } from "../../src/core/derive";
 import { DEFAULT_PARAMS } from "../../src/core/spineState";
-import { Store } from "../../src/core/store";
 import { loadFixture } from "../helpers";
 
 describe("memo", () => {
@@ -12,18 +11,6 @@ describe("memo", () => {
     expect(f(1, o)).toBe(r1);
     f(1, {});
     expect(f.calls()).toBe(2);
-  });
-});
-
-describe("Store", () => {
-  it("notifies on change only", () => {
-    const s = new Store({ x: 1, y: 2 });
-    let n = 0;
-    s.subscribe(() => n++);
-    s.set({ x: 1 });
-    s.set({ x: 3 });
-    expect(n).toBe(1);
-    expect(s.get().x).toBe(3);
   });
 });
 

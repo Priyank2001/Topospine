@@ -6,8 +6,11 @@ E0 271 course project (Yashi, Priyank). Implements Correa, Lindstrom & Bremer,
 ```
 pipeline/   Python: extremum graphs (steepest ascent / TTK), Algorithm 1, export
 web/        TypeScript + Three.js: the spine in the browser
-docs/       paper map, deviations, milestone notes, figures
+docs/       paper map, deviations, decisions, milestone notes (M1, M2, M3), figures
 ```
+
+Start with [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): every component in plain words,
+where state lives, and how to add a feature.
 
 Quick start:
 

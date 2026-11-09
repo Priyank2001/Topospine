@@ -1,0 +1,9 @@
+# 2-D slice of Klacansky's `nucleon` volume (made by data/download.py)
+name: klacansky_nucleon
+dataset:
+  type: npy
+  path: ../../data/slices/nucleon_z20.npy
+  spacing_xyz: [1, 1]
+extremum: maxima
+source: {type: native, connectivity: 8}
+output: ../out/klacansky_nucleon

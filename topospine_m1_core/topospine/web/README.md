@@ -18,6 +18,7 @@ Controls: drag to pan, wheel to zoom, double-click to fit. In the plot, drag the
 (noise threshold) or the red line (variation threshold; drag to the right edge for ∞);
 focus the plot and use ← → (shift for bigger steps), `l`/`h` to pick a line.
 
-Layout: `src/core` is pure TypeScript (tested), `render/` owns GPU resources, `view/` the
-canvas and camera, `ui/` the plot and panel, `app/App.ts` wires them. See
-`../docs/M2_NOTES.md`.
+Layout (Model-View-Presenter): `src/core` is pure TypeScript (tested), `model/` holds state
+and rules, `presenters/` map state to view models, `views/` draw them (`render/` owns GPU
+resources), `services/` fetch data, and `main.ts` wires everything. See
+`../docs/ARCHITECTURE.md`.

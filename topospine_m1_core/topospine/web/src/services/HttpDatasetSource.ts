@@ -5,22 +5,14 @@
 
 import { parseExport, requiredFiles } from "../core/parse";
 import { SpineData } from "../core/types";
+import { DatasetEntry, DatasetSource } from "./DatasetSource";
 
-export interface DatasetEntry {
-  name: string;
-  kind: "grid" | "points";
-  extremum: "maxima" | "minima";
-  numSamples: number;
-  numExtrema: number;
-  numSaddles: number;
-}
-
-export class DatasetLoader {
-  constructor(private readonly base = `${import.meta.env.BASE_URL}data/`) {}
+export class HttpDatasetSource implements DatasetSource {
+  constructor(private readonly base: string) {}
 
   async index(): Promise<DatasetEntry[]> {
     const res = await fetch(`${this.base}index.json`);
-    if (!res.ok) return [];
+    if (!res.ok) return []; // no index yet = no datasets, not an error
     return (await res.json()) as DatasetEntry[];
   }
 

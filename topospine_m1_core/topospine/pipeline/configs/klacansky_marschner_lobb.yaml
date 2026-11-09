@@ -1,0 +1,9 @@
+# 2-D slice of Klacansky's `marschner_lobb` volume (made by data/download.py)
+name: klacansky_marschner_lobb
+dataset:
+  type: npy
+  path: ../../data/slices/marschner_lobb_z20.npy
+  spacing_xyz: [1, 1]
+extremum: maxima
+source: {type: native, connectivity: 8}
+output: ../out/klacansky_marschner_lobb

@@ -1,0 +1,9 @@
+# 2-D slice of Klacansky's `fuel` volume (made by data/download.py)
+name: klacansky_fuel
+dataset:
+  type: npy
+  path: ../../data/slices/fuel_z32.npy
+  spacing_xyz: [1, 1]
+extremum: maxima
+source: {type: native, connectivity: 8}
+output: ../out/klacansky_fuel

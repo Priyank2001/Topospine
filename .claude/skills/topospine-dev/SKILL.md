@@ -95,7 +95,7 @@ Data flows one way: **View → Presenter → Model → Presenter → View.** Not
 - **O**: new technique / layout / projection / colour map / reader = new file implementing an existing interface + one registry entry. No `if (kind === …)` chains outside a registry or the one place that picks a strategy.
 - **L**: every implementation of an interface is usable wherever the interface is; no `instanceof` checks on it.
 - **I**: small interfaces. A view that only draws doesn't implement event binding it never uses.
-- **D**: depend on interfaces; inject concretes from `main.ts` (web) or the registries (`SOURCES`, `READERS` in the pipeline).
+- **D**: depend on interfaces; inject concretes from `main.ts` (web) or the registries (`REGION_METHODS`, `SADDLE_METHODS`, `PRESETS`, `READERS` in the pipeline).
 - **Abstractions must pay rent**: add an interface only for 2+ implementations, a likely-to-change boundary, or a test seam (all views qualify via presenter tests).
 
 ### Code style (match the existing files)
@@ -127,7 +127,7 @@ Every choice between real options is logged in `docs/DECISIONS.md`, in the same 
 
 ## Pipeline (Python) note
 
-MVP is for interactive UI and does not apply to the batch pipeline. There the rules are: pure NumPy `core/`, I/O in `io/`, backends behind the `ExtremumGraphSource` Protocol, formats/backends added via the `READERS` / `SOURCES` registries, one YAML config per run. Any change to the file contract (`graph.json`, `*.bin`) updates `pipeline/schema/spine.schema.json`, `web/src/core/parse.ts`, and their tests together.
+MVP is for interactive UI and does not apply to the batch pipeline. There the rules are: pure NumPy `core/`, I/O in `io/`, backends behind the `ExtremumGraphSource` Protocol, formats are added via `READERS`, extraction methods via `REGION_METHODS` / `SADDLE_METHODS` (named pairs via `PRESETS`), one YAML config per run. Any change to the file contract (`graph.json`, `*.bin`) updates `pipeline/schema/spine.schema.json`, `web/src/core/parse.ts`, and their tests together.
 
 ## Review checklist (run before saying a file or milestone is done)
 

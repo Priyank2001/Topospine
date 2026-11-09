@@ -7,14 +7,7 @@
 import * as THREE from "three";
 import markerFrag from "./shaders/marker.frag.glsl?raw";
 import markerVert from "./shaders/marker.vert.glsl?raw";
-
-export interface OverlayData {
-  /** Pairs of points, [x0, y0, x1, y1] per link. */
-  segments: Float32Array;
-  /** [x, y] per node, and its kind (0 extremum, 1 saddle). */
-  centers: Float32Array;
-  kinds: Float32Array;
-}
+import { OverlayData } from "../core/spine/overlay";
 
 export class Overlay {
   readonly scene = new THREE.Scene();

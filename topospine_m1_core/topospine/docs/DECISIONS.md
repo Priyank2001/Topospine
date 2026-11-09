@@ -669,3 +669,38 @@ features below the threshold survive (klacansky_foot, 5 %: 87 left with ascent+b
 **Revisit if** users routinely ignore the warning, or a second simplifier with another mesh
 is added (then the check belongs on the simplifier, not in `run.py`).
 
+
+### D-020 · Sixteen circles per canonical link
+
+**The question.** A canonical link approximates the paper's Minkowski sum of circles along the
+extremum-saddle arc (Sec. 4.1) with K sampled circles joined by tapered capsules. The code
+used K = 8 (`DEFAULT_LINKS.knots`, and a hard-coded `knots: 8` in `core/derive.ts`). Is 8 too
+coarse for the bulged lobes of the critical contour?
+
+**What we chose.** K = 16 in both places. The default lives in `DEFAULT_LINKS`, and
+`derive.ts` passes it explicitly, so the two must change together.
+
+**Options we didn't take.**
+- Keep 8: the outline of each link is visibly faceted on large radii.
+- Make K adaptive to the radius: more code and a second parameter, with no evidence yet that a
+  fixed count is the bottleneck.
+
+**Revisit if** the cost of drawing 16 circles per link per level becomes visible on the largest
+datasets, or if the faceting still shows at high zoom.
+
+### D-021 · Radius proportional to volume by default
+
+**The question.** Paper Sec. 4.2 makes a link's radius proportional to the enclosed volume.
+The code defaulted to `"sqrt"` (area proportional to volume), which keeps small regions
+visible next to large ones (DEVIATIONS #11). Which should be the default?
+
+**What we chose.** `"linear"` (radius ∝ volume) in both `DEFAULT_LINKS` and the
+`spineState` default. The panel option "Radius ∝ volume (paper)" remains, and "Area ∝
+volume" is still selectable.
+
+**Options we didn't take.**
+- Keep `"sqrt"`: a visible deviation from the paper, which is the reference for this viewer.
+- Remove the `"sqrt"` option: it is a useful view of small regions, and the choice is cheap to keep.
+
+**Revisit if** small regions become unreadable at the default and users switch to area
+encoding most of the time.

@@ -30,6 +30,8 @@ export interface SpineFrame {
   /** node id -> layout position, for drawn nodes. */
   layout: Map<number, [number, number]>;
   geometry: SpineGeometry;
+  /** Region histograms merged at pLo; sizes[r] = samples of representative r's region. */
+  regions: MergedRegions;
   timings: { layoutMs: number; geometryMs: number; layoutIterations: number; layoutSkipped: boolean };
 }
 
@@ -69,7 +71,7 @@ export class SpinePipeline {
         linkExtremum: g.linkExtremum,
         linkSaddle: g.linkSaddle,
         pos: (n) => layout.get(n)!,
-      }, levels, { knots: 8, mode, glyphScale }),
+      }, levels, { knots: 16, mode, glyphScale }),
   );
 
   constructor(private readonly d: SpineData) {
@@ -93,7 +95,7 @@ export class SpinePipeline {
     const t0 = performance.now();
     const geometry = this.geometry(display, layout, regions, levels, p.radiusMode, p.glyphScale);
     const geometryMs = performance.now() - t0;
-    return { visibility, rep, display, layout, geometry, timings: { ...this.lastLayoutStats, geometryMs } };
+    return { visibility, rep, display, layout, geometry, regions, timings: { ...this.lastLayoutStats, geometryMs } };
   }
 
   private computeLayout(g: DisplayGraph): Map<number, [number, number]> {

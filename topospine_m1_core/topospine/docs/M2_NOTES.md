@@ -54,13 +54,13 @@ mirrors it line by line.
 | `core/layout/pca.ts`, `stress.ts` | initial frame, distance-preserving layout | core |
 | `core/spine/levels.ts`, `links.ts`, `sdf.ts` | isovalues, capsule pieces, SDF reference | core |
 | `core/colormap.ts` | viridis | core |
-| `core/store.ts`, `spineState.ts`, `derive.ts` | state, defaults, memoised pipeline | core |
-| `data/DatasetLoader.ts` | fetch index + files | platform |
+| `core/spineState.ts`, `derive.ts` | parameter defaults, memoised pipeline | core |
 | `render/SpineSdfRenderer.ts`, `Overlay.ts`, `shaders/*` | GPU passes, markers, lines | render |
-| `view/SpineView.ts` | renderer, camera, pan/zoom, resize, theme, render on demand | view |
-| `ui/PersistencePlot.ts`, `Panel.ts` | the two-curve plot, lil-gui | ui |
-| `app/App.ts`, `main.ts` | wiring, HMR cleanup | app |
 | `scripts/sync-data.mjs` | pipeline/out → public/data + index.json | tooling |
+
+Since the MVP split, state, presenters and views are listed in `ARCHITECTURE.md` §3.4
+(`store.ts` moved to `model/Store.ts`, `data/DatasetLoader.ts` to `services/HttpDatasetSource.ts`,
+`view/SpineView.ts` to `views/spine/SpineView.ts`, and `ui/` and `app/` were split into views and presenters).
 
 Tests: 7 files, 51 tests (`npm test`), all on pure core modules, using fixtures exported by
 `pipeline/scripts/make_web_fixtures.py`, so the TypeScript is checked against real Python

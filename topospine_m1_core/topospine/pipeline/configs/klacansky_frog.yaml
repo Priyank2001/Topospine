@@ -1,0 +1,9 @@
+# 2-D slice of Klacansky's `frog` volume (made by data/download.py)
+name: klacansky_frog
+dataset:
+  type: npy
+  path: ../../data/slices/frog_z22.npy
+  spacing_xyz: [0.5, 0.5]
+extremum: maxima
+source: {type: native, connectivity: 8}
+output: ../out/klacansky_frog
